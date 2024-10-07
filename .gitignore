@@ -1,3 +1,4 @@
 sim.fits
 nifty_maria/*.npy
 nifty_maria/gifs/*.gif
+nifty_maria/python/__pycache__/
