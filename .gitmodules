@@ -1,3 +1,6 @@
 [submodule "maria"]
 	path = maria
 	url = git@github.com:jwuerzinger/maria.git
+[submodule "nifty"]
+	path = nifty
+	url = ./nifty
