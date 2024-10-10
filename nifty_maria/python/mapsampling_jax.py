@@ -59,6 +59,22 @@ import maria
 
 instrument = maria.get_instrument('MUSTANG-2')
 
+from maria.instrument import Band
+
+def get_atlast():
+    
+    f090 = Band(center=92, # in GHz
+                width=40.0,
+                knee=1,
+                sensitivity=6e-5) # in K sqrt(s)
+
+    array = {"field_of_view": 1.0, "bands": [f090]}
+
+    global instrument
+    instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
+
+    return instrument
+
 @jax.jit
 def sample_maps(sim_truthmap, dx, dy, resolution, x_side, y_side):
 
