@@ -53,8 +53,8 @@ def construct_beam_filter(fwhm, res, buffer=1):
 
     return F / F.sum()
 
-from maria.constants import k_B
-from maria.instrument import beams
+from maria.units.constants import k_B
+from maria.instrument import beam
 import maria
 
 instrument = maria.get_instrument('MUSTANG-2')
@@ -68,10 +68,11 @@ def get_atlast():
                 knee=1,
                 sensitivity=6e-5) # in K sqrt(s)
 
-    array = {"field_of_view": 1.0, "bands": [f090]}
+    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2}
 
     global instrument
-    instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
+    # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
+    instrument = maria.get_instrument(array=array)
 
     return instrument
 
@@ -102,7 +103,7 @@ def sample_maps(sim_truthmap, dx, dy, resolution, x_side, y_side):
         )
 
         # nu is in GHz, f is in Hz
-        nu_fwhm = beams.compute_angular_fwhm(
+        nu_fwhm = beam.compute_angular_fwhm(
             # fwhm_0=sim_truthmap.instrument.dets.primary_size.mean(),
             fwhm_0=instrument.dets.primary_size.mean(),
             z=np.inf,
@@ -115,9 +116,10 @@ def sample_maps(sim_truthmap, dx, dy, resolution, x_side, y_side):
         # jax:
         map_power = jax.scipy.interpolate.RegularGridInterpolator(
             # Need to invert x_side and y_side for jax interpolation:
-            (jax.numpy.flip(x_side), jax.numpy.flip(y_side)), # length N=2 sequence of arrays with grid coords
-            # jax.numpy.flip(sim_truthmap[0]),
-            jax.numpy.flip(filtered_power_map), # N=2-dimensional array specifying grid values (1000, 1000)
+            # (jax.numpy.flip(x_side), jax.numpy.flip(y_side)), # length N=2 sequence of arrays with grid coords
+            # jax.numpy.flip(filtered_power_map), # N=2-dimensional array specifying grid values (1000, 1000)
+            (x_side, y_side), # length N=2 sequence of arrays with grid coords
+            filtered_power_map, # N=2-dimensional array specifying grid values (1000, 1000)
             fill_value=0.,
             bounds_error=False,
             method="linear",
