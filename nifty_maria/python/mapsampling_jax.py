@@ -102,7 +102,7 @@ def sample_maps(sim_truthmap, dx, dy, resolution, x_side, y_side):
             method='nearest',
         )(nu)
 
-        TRJ = jax.numpy.reshape(TRJ, (1, 64, 1000, 1000)) # TODO: softcode this!
+        TRJ = jax.numpy.reshape(TRJ, (TRJ.shape[1], TRJ.shape[0], TRJ.shape[2], TRJ.shape[3]))
         nu_passband = jax.numpy.exp(jax.numpy.log(0.5) * (2 * (nu - 90.) / 30.) ** 2)
 
         power_map = (
