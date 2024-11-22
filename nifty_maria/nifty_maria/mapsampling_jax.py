@@ -75,7 +75,8 @@ def get_atlast():
                 knee=1,
                 sensitivity=6e-5) # in K sqrt(s)
 
-    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2}
+    # array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
+    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 4} # Dummy setup with less detectors
 
     global instrument
     # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
