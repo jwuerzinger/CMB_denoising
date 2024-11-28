@@ -1,5 +1,6 @@
-'''Module to collect fit config for nifty-maria fits.'''
-
+'''
+Module to collect fit config for nifty-maria fits.
+'''
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
@@ -27,7 +28,71 @@ from nifty_maria.modified_CFM import CFM
 import nifty8.re as jft
 
 class FitHandler:
-    def __init__(self, fit_map=True, fit_atmos=True, config='atlast_debug', noiselevel=1.0):
+    '''
+    A steering class to handle nifty fits using data generated with maria.
+
+    Attributes:
+        fit_map (bool): Perform fit of map if True.
+        fit_atmos (bool): Perform fit of atmosphere if True.
+        config (str): The detector configuraion to run on. Options are: "mustang", "atlast" and "atlast_debug".
+        noiselevel (float): The fraction of noise to add.
+        input_map (Map): The input map of the sky to use in simulation.
+        plan (Plan): The scanning pattern to simulate.
+        instrument (Instrument): The detector used during simulation.
+        params (dict): The dictionary containing fit parameters (initial values, stdev) for both atmosphere and map GPs used in the nifty fit.
+        key (KeyArray): Pseudo random number key for jax.
+        
+    Dynamic Attributes (Added by Methods):    
+        sim_truthmap (Simulation): Simulation object containing instrument, plan, site, input map and parameters for noise, atmosphere and cmb simulation. Added by FitHandler.simulate().
+        tod_truthmap (TOD): TOD object containing simulated time-stream data. Added by FitHandler.simulate().
+        dx (array): Array with detector offsets in x-direction. Added by FitHandler.simulate().
+        dy (array): Array with detector offsets in y-direction. Added by FitHandler.simulate().
+        output_truthmap (Map): Noised Map object obtained by reconstruction without postprocessing. Added by FitHandler.reco_maria().
+        mapdata_truth (array): Array with true simulated map. Added by FitHandler.reco_maria().
+        output_map (Map): Map opbject obtained by reconstruction with postprocessing. Added by FitHandler.reco_maria().
+        jax_tods_map (array): Array with map TODs generated with jax. Added by FitHandler.sample_jax_tods().
+        jax_tods_atmos (array): Array with atmosphere TODs generated with jax. Added by FitHandler.sample_jax_tods().
+        noised_jax_tod (array): Array with total noised TODs generated with jax. Added by FitHandler.sample_jax_tods().
+        denoised_jax_tod (array): Array with total denoised TODs generated with jax. Added by FitHandler.sample_jax_tods().
+        slopes_tod (array): Array with slopes between atmosphere TODs. Taken from data if use_truth_slope=False, otherwise taken from the true atmosphere TODs. Added by FitHandler.sample_jax_tods(). 
+        offset_tod (array): Array with offsets between atmosphere TODs. Taken from data if use_truth_slope=False, otherwise taken from the true atmosphere TODs. Added by FitHandler.sample_jax_tods(). 
+        atmos_tod_simplified (array): Array with simplified atmosphere TODs, removing offsets and slopes. Added by FitHandler.sample_jax_tods(). 
+        initial_pos (jft.Vector): Vector with initial position to be used in fit. Added by FitHandler.init_gps().
+        padding_atmos (int): Integer describing atmosphere padding. Added by FitHandler.init_gps().
+        dims_atmos (tuple[int,]): Tuple with atmosphere dimensions. Added by FitHandler.init_gps().
+        cf_zm_tod (dict): Dictionary with atmosphere zeromode parameters. Added by FitHandler.init_gps().
+        cf_fl_tod (dict): Dictionary with atmosphere fluctuation parameters. Added by FitHandler.init_gps().
+        gp_tod (nifty_maria.modified_CFM.CFM): Modified CorrelatedFieldMaker object describing GP for atmosphere TODs. Added by FitHandler.init_gps().
+        padding_map (int): Integer describing map padding. Added by FitHandler.init_gps().
+        dims_map (tuple[int,int]): Tuple with map dimensions. Added by FitHandler.init_gps().
+        cf_zm_map (dict): Dictionary with map zeromode parameters. Added by FitHandler.init_gps().
+        cf_fl_map (dict): Dictionary with map fluctuation parameters. Added by FitHandler.init_gps().
+        gp_map (jft.CorrelatedFieldMaker): CorrelatedFieldMaker object describing GP for map. Added by FitHandler.init_gps().
+        signal_response_tod (jft.Model): Signal model containing forward model. Added by FitHandler.init_gps().
+        lh (jft.Gaussian): Gaussian Likelihood used in optimisation. Added by FitHandler.init_gps().
+        
+    Example:
+        Setup for simple fit to mustang:
+        >>> fit = FitHandler(config='mustang')
+        >>> fit.simulate()
+        >>> fit.reco_maria()
+        >>> fit.sample_jax_tods()
+        >>> fit.init_gps()
+        >>> samples, state = fit.perform_fit(fit_type = 'map')
+    '''
+    def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast_debug', noiselevel: int = 1.0) -> None:
+        '''
+        Initialises the FitHandler with base attributes.
+        
+        Args:
+            fit_map (bool, optional): Perform fit of map if True. Defaults to True.
+            fit_atmos (bool, optional): Perform fit of atmosphere if True. Defaults to True.
+            config (str, optional): The detector configuraion to run on. Options are: 'mustang', 'atlast' and 'atlast_debug'. Defaults to 'atlast_debug'.
+            noiselevel (float, optional): The fraction of noise to add. Defaults to 1.0.
+            
+        Raises:
+            ValueError: If invalid configuration is used.
+        '''
         
         print("Initialising...")
         self.fit_map = fit_map
@@ -36,53 +101,109 @@ class FitHandler:
         self.noiselevel = noiselevel
         
         if self.config == 'mustang':
-            raise ValueError("Mustang config not implemented yet.")
+            map_filename = maria.io.fetch("maps/cluster.fits")
+
+            # load in the map from a fits file
+            self.input_map = maria.map.read_fits(filename=map_filename, #filename
+                                            resolution=8.714e-05, #pixel size in degrees
+                                            index=0, #index for fits file
+                                            center=(150, 10), # position in the sky
+                                            units='Jy/pixel' # Units of the input map 
+                                        )
+
+            self.input_map.to(units="K_RJ").plot()
+            
+            #load the map into maria
+            self.plan = maria.get_plan(scan_pattern="daisy", # scanning pattern
+                                scan_options={"radius": 0.05, "speed": 0.01}, # in degrees
+                                duration=600, # integration time in seconds
+                                # duration=60,
+                                #   duration=300, # integration time in seconds
+                                sample_rate=50, # in Hz
+                                scan_center=(150, 10), # position in the sky
+                                frame="ra_dec")
+
+            self.plan.plot()
+            
+            self.instrument = nifty_maria.mapsampling_jax.instrument
+            self.instrument.plot()
+            
+            self.params = { 
+                'tod_offset' : (1e-5, 0.99e-5),
+                'tod_fluct' : (0.0015, 0.0001),
+                'tod_loglog' : (-2.45, 0.1),
+                'map_offset' : (1e-8, 1e-7),
+                'map_fluct' : (5.6e-5, 1e-6),
+                'map_loglog' : (-2.5, 0.1),
+            }
+            
         elif self.config == 'atlast':
             raise ValueError("AtLAST config not implemented yet.")
         elif self.config == 'atlast_debug':
             map_filename = maria.io.fetch("maps/cluster.fits")
         
-        self.input_map = maria.map.read_fits(
-            nu=150,
-            filename=map_filename,  # filename
-            # resolution=8.714e-05,  # pixel size in degrees
-            width=1.,
-            index=0,  # index for fits file
-            # center=(150, 10),  # position in the sky
-            center=(300, -10),  # position in the sky
-            units="Jy/pixel",  # Units of the input map
-        )
+        
+            self.input_map = maria.map.read_fits(
+                nu=150,
+                filename=map_filename,  # filename
+                # resolution=8.714e-05,  # pixel size in degrees
+                width=1.,
+                index=0,  # index for fits file
+                # center=(150, 10),  # position in the sky
+                center=(300, -10),  # position in the sky
+                units="Jy/pixel",  # Units of the input map
+            )
 
-        # input_map.data *= 1e3
-        self.input_map.data *= 1e5
-        self.input_map.to(units="K_RJ").plot()
+            # input_map.data *= 1e3
+            self.input_map.data *= 1e5
+            self.input_map.to(units="K_RJ").plot()
+            
+            self.plan = maria.get_plan(
+                scan_pattern="daisy",
+                scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
+                duration=60, # in seconds
+                # duration=3, # in seconds
+                # sample_rate=225, # in Hz
+                sample_rate=20, # in Hz
+                # sample_rate=100, # in Hz
+                # sample_rate=50,
+                start_time = "2022-08-10T06:00:00",
+                scan_center=(300.0, -10.0),
+                frame="ra_dec"
+            )
+            self.plan.plot()
+            
+            # self.instrument = maria.get_instrument('MUSTANG-2')
+            # self.instrument = nifty_maria.mapsampling_jax.get_atlast()
+            self.instrument = nifty_maria.mapsampling_jax.get_dummy()
+            self.instrument.plot()
+            
+            self.params = {
+                'tod_offset' : (5e-5, 4e-5),
+                'tod_fluct' : (0.01, 0.003),
+                'tod_loglog' : (-2.2, 0.2),
+                'map_offset' : (2e-6, 1e-7),
+                'map_fluct' : (1e-4, 1e-5),
+                'map_loglog' : (-3.0, 0.1),
+            }
         
-        self.plan = maria.get_plan(
-            scan_pattern="daisy",
-            scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
-            duration=60, # in seconds
-            # duration=3, # in seconds
-            # sample_rate=225, # in Hz
-            sample_rate=20, # in Hz
-            # sample_rate=100, # in Hz
-            # sample_rate=50,
-            start_time = "2022-08-10T06:00:00",
-            scan_center=(300.0, -10.0),
-            frame="ra_dec"
-        )
-        self.plan.plot()
-        
-        # instrument = maria.get_instrument('MUSTANG-2')
-        self.instrument = nifty_maria.mapsampling_jax.get_atlast()
-        self.instrument.plot()
+        else:
+            raise ValueError("Unknown fit config!")
         
         # jax init:
         seed = 42
         self.key = random.PRNGKey(seed)
-        
-        return
 
-    def simulate(self):
+    def simulate(self) -> None:
+        '''
+        Performs maria simulation and decorates self with simulation parameters.
+        
+        Dynamic Attributes (Added by Methods):
+            sim_truthmap (Simulation): Simulation object containing instrument, plan, site, input map and parameters for noise, atmosphere and cmb simulation. Added by FitHandler.simulate().
+            tod_truthmap (TOD): TOD object containing simulated time-stream data. Added by FitHandler.simulate().
+            dx (array): Array with detector offsets in x-direction. Added by FitHandler.simulate().
+            dy (array): Array with detector offsets in y-direction. Added by FitHandler.simulate().
+        '''
         self.sim_truthmap = maria.Simulation(
             self.instrument, 
             plan=self.plan,
@@ -101,11 +222,20 @@ class FitHandler:
         
         return 
     
-    def reco_maria(self):
+    def reco_maria(self) -> None:
+        '''
+        Performs maria reconstruction and decorates self with reconstructed maps.
+        
+        Dynamic Attributes (Added by Methods):
+            output_truthmap (Map): Noised Map object obtained by reconstruction without postprocessing. Added by FitHandler.reco_maria().
+            mapdata_truth (array): Array with true simulated map. Added by FitHandler.reco_maria().
+            output_map (Map): Map opbject obtained by reconstruction with postprocessing. Added by FitHandler.reco_maria().
+        '''
         from maria.mappers import BinMapper
 
         mapper_truthmap = BinMapper(
-            center=(300.0, -10.0),
+            # center=(300.0, -10.0),
+            center=(150., 10.),
             frame="ra_dec",
             width=1.,
             height=1.,
@@ -113,7 +243,7 @@ class FitHandler:
             map_postprocessing={"gaussian_filter": {"sigma": 0} }
         )
         mapper_truthmap.add_tods(self.tod_truthmap)
-        output_truthmap = mapper_truthmap.run()
+        self.output_truthmap = mapper_truthmap.run()
 
         mapdata_truth = np.float64(self.sim_truthmap.map.data)
         self.mapdata_truth = np.nan_to_num(mapdata_truth, nan=np.nanmean(mapdata_truth)) # replace nan value by img mean
@@ -123,7 +253,7 @@ class FitHandler:
 
         fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
-        im0 = axes[0].imshow(output_truthmap.data[0].T)
+        im0 = axes[0].imshow(self.output_truthmap.data[0].T)
         fig.colorbar(im0)
         axes[0].title.set_text("Noisy image (Mapper output)")
 
@@ -133,9 +263,44 @@ class FitHandler:
 
         plt.show()
         
+        # Run proper mapmaker
+        mapper = BinMapper(center=(150, 10),
+                   frame="ra_dec",
+                   width=0.1,
+                   height=0.1,
+                   resolution=2e-4,
+                   tod_preprocessing={
+                        "window": {"name": "hamming"},
+                        "remove_modes": {"modes_to_remove": [0]},
+                        "despline": {"knot_spacing": 10},
+                    },
+                    map_postprocessing={
+                        "gaussian_filter": {"sigma": 1},
+                        "median_filter": {"size": 1},
+                    },
+                )
+        
+        mapper.add_tods(self.tod_truthmap)
+        self.output_map = mapper.run()
+        
         return
     
-    def sample_jax_tods(self, use_truth_slope=False):
+    def sample_jax_tods(self, use_truth_slope: bool = False) -> None:
+        '''
+        Sample TODs using jax map sampling, make plots comparing to TODs generated with maria and decorate self with simulated TODs.
+        
+        Args:
+            use_truth_slope (bool): Boolean determining how slopes and offsets used for detrending atmosphere TODs are determined. If True, slopes and offsets are taken from simulated atmosphere TODs, otherwise the total simulated data (including noise) is used. Defaults to False.
+        
+        Dynamic Attributes (Added by Methods):
+            jax_tods_map (array): Array with map TODs generated with jax. Added by FitHandler.sample_jax_tods().
+            jax_tods_atmos (array): Array with atmosphere TODs generated with jax. Added by FitHandler.sample_jax_tods().
+            noised_jax_tod (array): Array with total noised TODs generated with jax. Added by FitHandler.sample_jax_tods().
+            denoised_jax_tod (array): Array with total denoised TODs generated with jax. Added by FitHandler.sample_jax_tods().
+            slopes_tod (array): Array with slopes between atmosphere TODs. Taken from data if use_truth_slope=False, otherwise taken from the true atmosphere TODs. Added by FitHandler.sample_jax_tods(). 
+            offset_tod (array): Array with offsets between atmosphere TODs. Taken from data if use_truth_slope=False, otherwise taken from the true atmosphere TODs. Added by FitHandler.sample_jax_tods(). 
+            atmos_tod_simplified (array): Array with simplified atmosphere TODs, removing offsets and slopes. Added by FitHandler.sample_jax_tods(). 
+        '''
         
         # Sample map with jax function and plot comparison
         self.jax_tods_map = sample_maps(self.mapdata_truth, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
@@ -217,7 +382,108 @@ class FitHandler:
         
         return 
         
-    def init_gps(self):
+    def init_gps(self, n_sub: int = 1, samples: jft.evi.Samples = None) -> None:
+        '''
+        Initialise atmosphere and map GPs. If n_sub and samples are provided, split atmos GPs in n_sub from samples.
+        
+        Args:
+            n_sub (int): Integer determining how many GPs are used to simulate sub-detector atmosphere responses. Simulates all sub-detectors if -1. Defaults to 1.
+            samples (jft.evi.Samples): Samples obtained in previous fit to use for initialisation. If None, a random initialisation is performed. Defaults to None.
+        
+        Dynamic Attributes (Added by Methods):
+            initial_pos (jft.Vector): Vector with initial position to be used in fit. Added by FitHandler.init_gps().
+            padding_atmos (int): Integer describing atmosphere padding. Added by FitHandler.init_gps().
+            dims_atmos (tuple[int,]): Tuple with atmosphere dimensions. Added by FitHandler.init_gps().
+            cf_zm_tod (dict): Dictionary with atmosphere zeromode parameters. Added by FitHandler.init_gps().
+            cf_fl_tod (dict): Dictionary with atmosphere fluctuation parameters. Added by FitHandler.init_gps().
+            gp_tod (nifty_maria.modified_CFM.CFM): Modified CorrelatedFieldMaker object describing GP for atmosphere TODs. Added by FitHandler.init_gps().
+            padding_map (int): Integer describing map padding. Added by FitHandler.init_gps().
+            dims_map (tuple[int,int]): Tuple with map dimensions. Added by FitHandler.init_gps().
+            cf_zm_map (dict): Dictionary with map zeromode parameters. Added by FitHandler.init_gps().
+            cf_fl_map (dict): Dictionary with map fluctuation parameters. Added by FitHandler.init_gps().
+            gp_map (jft.CorrelatedFieldMaker): CorrelatedFieldMaker object describing GP for map. Added by FitHandler.init_gps().
+            signal_response_tod (jft.Model): Signal model containing forward model. Added by FitHandler.init_gps().
+            lh (jft.Gaussian): Gaussian Likelihood used in optimisation. Added by FitHandler.init_gps().
+        
+        Raises:
+            ValueError: If invalid number of subdetectors n_sub or invalid combination fo n_sub and samples is supplied.
+        '''
+        
+        from maria.units import Angle
+
+        test = Angle(self.instrument.dets.offsets)
+        pos = getattr(test, test.units).T
+
+        print(pos.shape)
+
+        posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
+        posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
+
+        posmask_up = posmask_ud
+        posmask_down = ~posmask_ud
+        posmask_left = posmask_lr
+        posmask_right = ~posmask_lr
+        
+        posmask_ul = posmask_up & posmask_left
+        posmask_ur = posmask_up & posmask_right
+        posmask_dl = posmask_down & posmask_left
+        posmask_dr = posmask_down & posmask_right
+        
+        if samples is not None and n_sub != 1:
+            print(f"Will initialise GPs for atmosphere in {n_sub} parts based on samples.")
+            
+            if n_sub == 2:
+                initial_pos = {}
+                for k in samples.pos:
+                    if k == 'combcf xi':
+                        initial_pos[k] = jnp.broadcast_to(
+                            samples.pos['combcf xi'],
+                            (2, samples.pos['combcf xi'].shape[1])
+                        ) # only works for one TOD!
+
+                    else:
+                        initial_pos[k] = samples.pos[k]
+
+                self.initial_pos = jft.Vector(initial_pos)
+                
+            elif n_sub == 4:
+                initial_pos = {}
+                
+                for k in samples.pos:
+                    if k == 'combcf xi':
+                        initial_pos[k] = jax.numpy.empty( (4, samples.pos['combcf xi'].shape[1]) )
+                        initial_pos[k] = initial_pos[k].at[0].set( samples.pos['combcf xi'][0] )
+                        initial_pos[k] = initial_pos[k].at[1].set( samples.pos['combcf xi'][0] )
+                        initial_pos[k] = initial_pos[k].at[2].set( samples.pos['combcf xi'][1] )
+                        initial_pos[k] = initial_pos[k].at[3].set( samples.pos['combcf xi'][1] )
+
+                    else:
+                        initial_pos[k] = samples.pos[k]
+
+                self.initial_pos = jft.Vector(initial_pos)
+            
+            elif n_sub == -1:
+                initial_pos = {}
+                for k in samples.pos:
+                    if k == 'combcf xi':
+                        initial_pos[k] = jax.numpy.empty( (self.instrument.n_dets, samples.pos['combcf xi'].shape[1]) )
+                        initial_pos[k] = initial_pos[k].at[posmask_up & posmask_left].set( samples.pos['combcf xi'][0] )
+                        initial_pos[k] = initial_pos[k].at[posmask_down & posmask_left].set( samples.pos['combcf xi'][1] )
+                        initial_pos[k] = initial_pos[k].at[posmask_up & posmask_right].set( samples.pos['combcf xi'][2] )
+                        initial_pos[k] = initial_pos[k].at[posmask_down & posmask_right].set( samples.pos['combcf xi'][3] )
+
+                    else:
+                        initial_pos[k] = samples.pos[k]
+
+                self.initial_pos = jft.Vector(initial_pos)
+            
+            else: raise ValueError("Only 1, 2, 4 and -1 (all) subdets implemented for now.")
+            
+        elif samples is not None and n_sub==1:
+            raise ValueError("Samples can only be used for initialisation if n_sub is not 1!")
+        
+        else:
+            self.initial_pos = None
         
         # padding_atmos = 2000
         # padding_atmos = 5000
@@ -229,7 +495,8 @@ class FitHandler:
         # cf_zm_tod = dict(offset_mean=jax_tods_atmos.mean().compute(), offset_std=(0.0002, 0.0001))
         # cf_zm_tod = dict(offset_mean=0.0, offset_std=(1e-5, 0.99e-5))
         # cf_zm_tod = dict(offset_mean=0.0, offset_std=(6e-6, 5e-6))
-        self.cf_zm_tod = dict(offset_mean=0.0, offset_std=(5e-5, 4e-5))
+        # self.cf_zm_tod = dict(offset_mean=0.0, offset_std=(5e-5, 4e-5))
+        self.cf_zm_tod = dict(offset_mean=0.0, offset_std=self.params['tod_offset'])
 
         # correlated field fluctuations (mostly don't need tuning)
         # fluctuations: y-offset in power spectrum in fourier space (zero mode)
@@ -237,10 +504,12 @@ class FitHandler:
         # flexibility=(1.5e0, 5e-1), # deviation from simple power-law
         # asperity=(5e-1, 5e-2), # small scale features in power-law
         self.cf_fl_tod = dict(
-            # fluctuations=(0.0015, 0.0001),
-            # loglogavgslope=(-2.45, 0.1), 
-            fluctuations=(0.01, 0.003),
-            loglogavgslope=(-2.2, 0.2), 
+            # # fluctuations=(0.0015, 0.0001),
+            # # loglogavgslope=(-2.45, 0.1), 
+            # fluctuations=(0.01, 0.003),
+            # loglogavgslope=(-2.2, 0.2), 
+            fluctuations=self.params['tod_fluct'],
+            loglogavgslope=self.params['tod_loglog'],
             flexibility=None,
             asperity=None,
         )
@@ -252,10 +521,11 @@ class FitHandler:
         cfm_tod.add_fluctuations(
             self.dims_atmos, distances=1.0 / self.dims_atmos[0], **self.cf_fl_tod, prefix="tod ", non_parametric_kind="power"
         )
-        # gp_tod = cfm_tod.finalize(n)
-        self.gp_tod = cfm_tod.finalize(1)
-        # nsub = 2 # 1, 2, 3 already breaks
-        # gp_tod = cfm_tod.finalize(nsub) 
+
+        if n_sub == -1: self.gp_tod = cfm_tod.finalize(self.instrument.n_dets)
+        else: self.gp_tod = cfm_tod.finalize(n_sub)
+        
+        print("Initialised gp_tod:", self.gp_tod)
         
         
         # padding_map = 400
@@ -275,11 +545,14 @@ class FitHandler:
         #     asperity=None,
         # )
         # Dummy map:
-        self.cf_zm_map = dict(offset_mean=self.mapdata_truth.mean(), offset_std=(2e-6, 1e-7))
+        # self.cf_zm_map = dict(offset_mean=self.mapdata_truth.mean(), offset_std=(2e-6, 1e-7))
+        self.cf_zm_map = dict(offset_mean=self.mapdata_truth.mean(), offset_std=self.params['map_offset'])
         # correlated field fluctuations (mostly don't need tuning)
         self.cf_fl_map = dict(
-            fluctuations=(1e-4, 1e-5), # fluctuations: y-offset in power spectrum in fourier space (zero mode)
-            loglogavgslope=(-3.0, 0.1),
+            # fluctuations=(1e-4, 1e-5), # fluctuations: y-offset in power spectrum in fourier space (zero mode)
+            # loglogavgslope=(-3.0, 0.1),
+            fluctuations=self.params['map_fluct'], # fluctuations: y-offset in power spectrum in fourier space (zero mode)
+            loglogavgslope=self.params['map_loglog'],
             flexibility=None,
             asperity=None,
         )
@@ -293,6 +566,8 @@ class FitHandler:
         self.gp_map = cfm_map.finalize()
         
         from nifty_maria.SignalModels import Signal_TOD_combined
+        from nifty_maria.SignalModels import Signal_TOD_combined_fourTODs
+        from nifty_maria.SignalModels import Signal_TOD
         
         if self.noiselevel == 0.0: noise_cov_inv_tod = lambda x: 1e-8**-2 * x
         elif self.noiselevel == 0.1: noise_cov_inv_tod = lambda x: 1e-4**-2 * x
@@ -300,29 +575,22 @@ class FitHandler:
         # elif self.noiselevel == 1.0: noise_cov_inv_tod = lambda x: 2.5e-4**-2 * x
         elif self.noiselevel == 1.0: noise_cov_inv_tod = lambda x: 1.9e-4**-2 * x
         
-        from maria.units import Angle
-
-        test = Angle(self.instrument.dets.offsets)
-        pos = getattr(test, test.units).T
-
-        print(pos.shape)
-
-        posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
-        posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
-
-        posmask_up = posmask_ud
-        posmask_down = ~posmask_ud
-        posmask_left = posmask_lr
-        posmask_right = ~posmask_lr
-        
-        self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
+        if n_sub == 2 or n_sub == 1:
+            self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
+        elif n_sub == 4:
+            self.signal_response_tod = Signal_TOD_combined_fourTODs(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_ul, posmask_ur, posmask_dl, posmask_dr, self.sim_truthmap, self.dx, self.dy)
+        else:
+            self.signal_response_tod = Signal_TOD(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
         self.lh = jft.Gaussian( self.noised_jax_tod, noise_cov_inv_tod).amend(self.signal_response_tod)
         
         print(self.lh)
         
         return 
     
-    def draw_prior_sample(self):
+    def draw_prior_sample(self) -> jax.Array:
+        '''
+        Draws sample from prior model and makes a plot of sample drawn. Returns array with corresponding signal response. 
+        '''
         self.key, sub = jax.random.split(self.key)
         xi = jft.random_like(sub, self.signal_response_tod.domain)
         res = self.signal_response_tod(xi)
@@ -337,10 +605,22 @@ class FitHandler:
         axes.title.set_text(f'all')
         axes.legend()
         
-        return 
+        return res
     
-    def perform_fit(self, n_it=1, fit_type = 'map', printevery = 2):
+    def perform_fit(self, n_it: int = 1, fit_type: str = 'full', printevery: int = 2) -> tuple[jft.evi.Samples, jft.optimize_kl.OptimizeVIState]:
+        '''
+        Performs nifty fit based on prior initialisation.
         
+        Args:
+            n_it (int): Integer value determining number of global iterations during optimisation. Defaults to 1.
+            fit_type (str): String determining fit configuration. Options are 'full' for full MGVI fit and 'map' for maximum aposteriori. Defaults to 'full'.
+            printevery (int): Integer determining interval for plotting intermediate fit results. Defaults to 2.
+        
+        Returns:
+            :tuple[jft.evi.Samples, jft.optimize_kl.OptimizeVIState]: A tuple containing:
+            - jft.evi.Samples: The samples obtained after fit has been performed
+            - jft.optimize_kl.OptimizeVIState: The optimisation state after fit has been performed.
+        '''
         if self.noiselevel == 0.0: delta = 1e-4
         elif self.noiselevel == 0.1: delta = 1e-10
         elif self.noiselevel == 0.5: delta = 1e-10
@@ -349,13 +629,22 @@ class FitHandler:
         if fit_type == 'map':
             n_samples = 0 # no samples -> maximum aposteriory posterior
             sample_mode = 'nonlinear_resample'
-        else:
+        elif fit_type == 'full':
             n_samples = 4
             sample_mode = lambda x: "nonlinear_resample" if x >= 1 else "linear_resample"
+        else:
+            raise ValueError(f"fit_type {fit_type} not supported!")
 
         self.key, k_i, k_o = random.split(self.key, 3)
 
-        def callback(samples, opt_state):
+        def callback(samples: jft.evi.Samples, opt_state: jft.optimize_kl.OptimizeVIState) -> None:
+            '''
+            Callback function to be used for plotting fit status during optimisation.
+            
+            Args:
+                samples (jft.evi.Samples): Samples to perform plots for.
+                opt_state (jft.optimize_kl.OptimizeVIState): Optimisation state to plot.
+            '''
             iter = opt_state[0]
             # printevery = 1 # 3
             n = self.instrument.n_dets
@@ -421,9 +710,13 @@ class FitHandler:
             
             return
 
+        if self.initial_pos is None:
+            self.initial_pos = 0.1*jft.Vector(self.lh.init(k_i))
+
         samples, state = jft.optimize_kl(
             self.lh, # likelihood
-            0.1*jft.Vector(self.lh.init(k_i)), # initial position in model space (initialisation)
+            # 0.1*jft.Vector(self.lh.init(k_i)), # initial position in model space (initialisation)
+            self.initial_pos,
             n_total_iterations=n_it, # no of optimisation steps (global)
             n_samples=n_samples, # draw samples
             key=k_o, # random jax init
@@ -451,8 +744,13 @@ class FitHandler:
         
         return samples, state
     
-    def printfitresults(self, samples):
+    def printfitresults(self, samples: jft.evi.Samples) -> None:
+        '''
+        Prints optimised GP parameters and initial parameters for map and atmosphere GPs.
         
+        Args:
+            samples (jft.evi.Samples): Samples to print fit results for.
+        '''
         print("Fit Results (res, init, std)")
 
         if self.fit_atmos:
@@ -469,8 +767,13 @@ class FitHandler:
          
         return
     
-    def plotfitresults(self, samples):
+    def plotfitresults(self, samples: jft.evi.Samples) -> None:
+        '''
+        Plots predictions made by optimised GP and compares with truth.
         
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+        '''
         res = self.signal_response_tod(samples.pos)
         n = self.instrument.n_dets
 
@@ -510,8 +813,13 @@ class FitHandler:
         
         return 
     
-    def plotpowerspectrum(self, samples):
+    def plotpowerspectrum(self, samples: jft.evi.Samples) -> None:
+        '''
+        Plots power spectrum of predictions made by optimised GP and compares with truth.
         
+        Args:
+            samples (jft.evi.Samples): Samples to plot power spectrum for.
+        '''
         import scipy as sp
 
         # mean, std = jft.mean_and_std(tuple(signal_response_tod(s) for s in samples))
@@ -565,3 +873,50 @@ class FitHandler:
         axes_tods.legend()
         
         return
+    
+    def plotrecos(self, samples: jft.evi.Samples) -> None:
+        '''
+        Plots comparison between maria and nifty reconstructions of the map with the true map.
+        
+        Args:
+            samples (jft.evi.Samples): Samples to make comparison for.
+        '''
+        from skimage.transform import resize
+
+        # Compare nifty vs maria
+        sig_map = self.gp_map(samples.pos)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] # when splitting up in different field models
+        # sig_map = self.gp_map(samples.pos)
+        # mincol = -0.0012
+        # maxcol = 0.
+        mincol = None
+        maxcol = None
+
+        cmb_cmap = plt.get_cmap('cmb')
+        fig, axes = plt.subplots(3, 2, figsize=(16, 16))
+
+        im0 = axes[0,0].imshow( self.mapdata_truth[0,0] , cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        axes[0,0].title.set_text('truth')
+        fig.colorbar(im0)
+
+        im1 = axes[0,1].imshow(self.output_truthmap.data[0,0], cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        fig.colorbar(im1)
+        axes[0,1].title.set_text("Noisy image (Mapper output)")
+
+        im2 = axes[1,0].imshow(self.output_map.data[0, 0], cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        axes[1,0].title.set_text('maria mapper')
+        fig.colorbar(im2)
+
+        truth_rescaled = resize(self.mapdata_truth[0,0], (500, 500), anti_aliasing=True)
+        im3 = axes[1,1].imshow((self.output_map.data[0, 0] - truth_rescaled), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        axes[1,1].title.set_text('maria - truth')
+        fig.colorbar(im3)
+
+        im3 = axes[2,0].imshow(sig_map, cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        axes[2,0].title.set_text('best fit image')
+        fig.colorbar(im3)
+
+        im4 = axes[2,1].imshow((sig_map - self.mapdata_truth[0,0]), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        axes[2,1].title.set_text('best fit - truth')
+        fig.colorbar(im4)
+
+        plt.show()

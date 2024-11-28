@@ -1,3 +1,6 @@
+'''
+Module collecting loose set of jax-ified and jit-ed mapsampling functions.
+'''
 import jax
 import numpy as np
 
@@ -69,6 +72,21 @@ instrument = maria.get_instrument('MUSTANG-2')
 from maria.instrument import Band
 
 def get_atlast():
+    
+    f090 = Band(center=92, # in GHz
+                width=40.0,
+                knee=1,
+                sensitivity=6e-5) # in K sqrt(s)
+
+    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
+
+    global instrument
+    # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
+    instrument = maria.get_instrument(array=array)
+
+    return instrument
+
+def get_dummy():
     
     f090 = Band(center=92, # in GHz
                 width=40.0,
