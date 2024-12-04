@@ -680,9 +680,11 @@ class FitHandler:
         elif self.noiselevel == 1.0: delta = 1e-4
 
         if fit_type == 'map':
+            print("Running map fit!")
             n_samples = 0 # no samples -> maximum aposteriory posterior
             sample_mode = 'nonlinear_resample'
         elif fit_type == 'full':
+            print("Running full fit!")
             n_samples = 4
             sample_mode = lambda x: "nonlinear_resample" if x >= 1 else "linear_resample"
         else:
@@ -783,7 +785,8 @@ class FitHandler:
             key=k_o, # random jax init
             draw_linear_kwargs=dict( # sampling parameters
                 cg_name="SL",
-                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=60),
+                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=60),
+                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=20), #TODO: fine-tune!
             ),
             nonlinearly_update_kwargs=dict( # map from multivariate gaussian to more compl. distribution (coordinate transformations)
                 minimize_kwargs=dict(
