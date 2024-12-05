@@ -540,8 +540,8 @@ class FitHandler:
             print("Initialised gp_tod:", self.gp_tod)
         
         if self.fit_map:
-            # self.padding_map = 10
-            self.padding_map = 0
+            self.padding_map = 10
+            # self.padding_map = 0
             # dims_map = (1024 + padding_map, 1024 + padding_map)
             self.dims_map = (1000 + self.padding_map, 1000 + self.padding_map)
 
@@ -596,8 +596,15 @@ class FitHandler:
         #TODO Add split by dets and clean up!
         if self.fit_map and self.fit_atmos:
             if self.padding_map > 0:
-                print("Initialising model: Signal_TOD_combined")
-                self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
+                if self.n_sub == 1 or self.n_sub == 2:
+                    print("Initialising model: Signal_TOD_combined")
+                    self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
+                elif self.n_sub == 4:
+                    print("Initialising model: Signal_TOD_combined_fourTODs")
+                    self.signal_response_tod = Signal_TOD_combined_fourTODs(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_ul, posmask_ur, posmask_dl, posmask_dr, self.sim_truthmap, self.dx, self.dy)
+                else:
+                    print("Initialising model: Signal_TOD")
+                    self.signal_response_tod = Signal_TOD(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
             else:
                 print("Initialising model: Signal_TOD_combined_nomappadding")
                 self.signal_response_tod = Signal_TOD_combined_nomappadding(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
@@ -612,24 +619,6 @@ class FitHandler:
             self.signal_response_tod = Signal_TOD_atmosonly(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down)
         else:
             raise ValueError("Invalid combination: Need to fit atmosphere and/or map!")
-        
-        
-        
-        # if self.n_sub == 2 or self.n_sub == 1:
-        #     if self.fit_map:
-        #         if self.padding_map > 0:
-        #             self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
-        #     else:
-        #         if self.fit_atmos and self.fit_map:
-        #             self.signal_response_tod = Signal_TOD_combined_nomappadding(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
-        #         elif self.fit_atmos and not self.fit_map:
-        #             self.signal_response_tod = Signal_TOD_atmosonly(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down)
-        #         else:
-        #             self.signal_response_tod = Signal_TOD_maponly_nomappadding(self.gp_map, self.dims_map, self.sim_truthmap, self.dx, self.dy)
-        # elif self.n_sub == 4:
-        #     self.signal_response_tod = Signal_TOD_combined_fourTODs(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_ul, posmask_ur, posmask_dl, posmask_dr, self.sim_truthmap, self.dx, self.dy)
-        # else:
-        #     self.signal_response_tod = Signal_TOD(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
 
         self.lh = jft.Gaussian( self.noised_jax_tod, noise_cov_inv_tod).amend(self.signal_response_tod)
         

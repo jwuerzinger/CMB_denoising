@@ -39,13 +39,13 @@ class Signal_TOD_combined(jft.Model):
         res_tods = res_tods[:, self.padding_atmos//2:-self.padding_atmos//2]
 
         # For half-circles use mask:
-        # res_tods_fulldet = jnp.zeros( (self.slopes_truth.shape[0], res_tods.shape[1]) )
-        # res_tods_fulldet = res_tods_fulldet.at[self.posmask_up].set( res_tods[0] )
-        # res_tods_fulldet = res_tods_fulldet.at[self.posmask_down].set( res_tods[-1] )
+        res_tods_fulldet = jnp.zeros( (self.slopes_truth.shape[0], res_tods.shape[1]) )
+        res_tods_fulldet = res_tods_fulldet.at[self.posmask_up].set( res_tods[0] )
+        res_tods_fulldet = res_tods_fulldet.at[self.posmask_down].set( res_tods[-1] )
 
         # From TOD-only fit:
-        # res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
-        res_tods_offset = res_tods * self.slopes_truth + self.offset_tod_truth
+        res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
+        # res_tods_offset = res_tods * self.slopes_truth + self.offset_tod_truth
 
         # res_map = sample_maps(jax.numpy.broadcast_to(self.gp_map(x), (1, dims_map[0], dims_map[1]))[:, padding_map//2:-padding_map//2, padding_map//2:-padding_map//2], dx, dy, sim_truthmap.map.resolution, sim_truthmap.map.x_side, sim_truthmap.map.y_side)
         # res_map = sample_maps(jax.numpy.broadcast_to(self.gp_map(x), (1, 1, dims_map[0], dims_map[1])), dx, dy, sim_truthmap.map.resolution, sim_truthmap.map.x_side, sim_truthmap.map.y_side)
