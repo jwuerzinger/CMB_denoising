@@ -105,13 +105,14 @@ class FitHandler:
         self.noiselevel = noiselevel
         
         if self.config == 'mustang':
+            self.scan_center = (150, 10)
             map_filename = maria.io.fetch("maps/cluster.fits")
 
             # load in the map from a fits file
             self.input_map = maria.map.read_fits(filename=map_filename, #filename
                                             resolution=8.714e-05, #pixel size in degrees
                                             index=0, #index for fits file
-                                            center=(150, 10), # position in the sky
+                                            center=self.scan_center, # position in the sky
                                             units='Jy/pixel' # Units of the input map 
                                         )
 
@@ -124,7 +125,7 @@ class FitHandler:
                                 # duration=60,
                                 #   duration=300, # integration time in seconds
                                 sample_rate=50, # in Hz
-                                scan_center=(150, 10), # position in the sky
+                                scan_center=self.scan_center, # position in the sky
                                 frame="ra_dec")
 
             self.plan.plot()
@@ -143,8 +144,54 @@ class FitHandler:
             }
             
         elif self.config == 'atlast':
-            raise ValueError("AtLAST config not implemented yet.")
+            self.scan_center = (300, -10)
+            map_filename = maria.io.fetch("maps/big_cluster.fits")
+            
+            self.input_map = maria.map.read_fits(filename=map_filename,
+                                width=1., #degrees
+                                index=1,
+                                center=self.scan_center, #RA and Dec in degrees
+                                units ='Jy/pixel'
+                               )
+            self.input_map.to(units="K_RJ").plot()
+            
+            # Default AtLAST plan: # TODO: make this work!
+            # self.plan = maria.get_plan(scan_pattern="daisy",
+            #           scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
+            #           duration=60, # in seconds
+            #           sample_rate=225, # in Hz
+            #           start_time = "2022-08-10T06:00:00",
+            #           scan_center=self.scan_center,
+            #           frame="ra_dec")
+            
+            # For debugging:
+            self.plan = maria.get_plan(scan_pattern="daisy",
+                    scan_options={"radius": 0.25, "speed": 0.5},
+                      duration=60, # in seconds
+                      sample_rate=10,
+                      start_time = "2022-08-10T06:00:00",
+                      scan_center=self.scan_center,
+                      frame="ra_dec")
+            
+            self.plan.plot()
+
+            self.instrument = nifty_maria.mapsampling_jax.get_atlast()
+            self.instrument.plot()
+            
+            self.params = {
+                'tod_offset' : (5e-5, 4e-5),
+                'tod_fluct' : (0.01, 0.003),
+                'tod_loglog' : (-2.2, 0.2),
+                'map_offset' : (1e-8, 1e-7),
+                'map_fluct' : (5.5e-5, 1e-6),
+                'map_loglog' : (-3.7, 0.1),
+                # TODO: generalize!
+                # 'noise' : lambda x: 1.9e-4**-2 * x, # For 100 Hz
+                'noise' : lambda x: 1.0e-4**-2 * x, # for 20Hz
+            }
+            
         elif self.config == 'atlast_debug':
+            self.scan_center = (300, -10)
             map_filename = maria.io.fetch("maps/cluster.fits")
         
         
@@ -155,7 +202,7 @@ class FitHandler:
                 width=1.,
                 index=0,  # index for fits file
                 # center=(150, 10),  # position in the sky
-                center=(300, -10),  # position in the sky
+                center=self.scan_center,  # position in the sky
                 units="Jy/pixel",  # Units of the input map
             )
 
@@ -173,7 +220,7 @@ class FitHandler:
                 # sample_rate=100, # in Hz
                 # sample_rate=50,
                 start_time = "2022-08-10T06:00:00",
-                scan_center=(300.0, -10.0),
+                scan_center=self.scan_center,
                 frame="ra_dec"
             )
             self.plan.plot()
@@ -222,6 +269,9 @@ class FitHandler:
 
         self.tod_truthmap = self.sim_truthmap.run()
         
+        # Plot TODs:
+        self.tod_truthmap.plot()
+        
         dx, dy = self.sim_truthmap.coords.offsets(frame=self.sim_truthmap.map.frame, center=self.sim_truthmap.map.center)
         self.dx = dx.compute()
         self.dy = dy.compute()
@@ -241,11 +291,11 @@ class FitHandler:
 
         mapper_truthmap = BinMapper(
             # center=(300.0, -10.0),
-            center=(150., 10.),
+            center=self.scan_center,
             frame="ra_dec",
             width=1.,
             height=1.,
-            resolution=np.rad2deg(self.instrument.dets.fwhm[0]) * 3600,
+            resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
             map_postprocessing={"gaussian_filter": {"sigma": 0} }
         )
         mapper_truthmap.add_tods(self.tod_truthmap)
@@ -269,25 +319,45 @@ class FitHandler:
 
         plt.show()
         
-        # Run proper mapmaker
-        mapper = BinMapper(center=(150, 10),
-                   frame="ra_dec",
-                   width=0.1,
-                   height=0.1,
-                   resolution=2e-4,
-                   tod_preprocessing={
-                        "window": {"name": "hamming"},
-                        "remove_modes": {"modes_to_remove": [0]},
-                        "despline": {"knot_spacing": 10},
-                    },
-                    map_postprocessing={
-                        "gaussian_filter": {"sigma": 1},
-                        "median_filter": {"size": 1},
-                    },
-                )
+        # Run proper mapmaker TODO: customize per fit
+        if self.config == 'mustang':
+            mapper = BinMapper(self.scan_center,
+                    frame="ra_dec",
+                    width=0.1,
+                    height=0.1,
+                    resolution=2e-4,
+                    tod_preprocessing={
+                            "window": {"name": "hamming"},
+                            "remove_modes": {"modes_to_remove": [0]},
+                            "despline": {"knot_spacing": 10},
+                        },
+                        map_postprocessing={
+                            "gaussian_filter": {"sigma": 1},
+                            "median_filter": {"size": 1},
+                        },
+                    )
+        elif self.config == 'atlast': # TODO: optimise!
+            mapper = BinMapper(self.scan_center,
+                    frame="ra_dec",
+                    width=1.,
+                    height=1.,
+                    resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
+                    tod_preprocessing={
+                            # "window": {"name": "hamming"},
+                            "window": {"name": "tukey", "kwargs": {"alpha": 0.1}},
+                            "remove_modes": {"modes_to_remove": [0]},
+                            "despline": {"knot_spacing": 5},
+                        },
+                        map_postprocessing={
+                            "gaussian_filter": {"sigma": 1},
+                            "median_filter": {"size": 1},
+                        },
+                    )
         
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
+        
+        self.output_map.plot()
         
         return
     
@@ -542,8 +612,10 @@ class FitHandler:
         if self.fit_map:
             self.padding_map = 10
             # self.padding_map = 0
-            # dims_map = (1024 + padding_map, 1024 + padding_map)
-            self.dims_map = (1000 + self.padding_map, 1000 + self.padding_map)
+            if self.config == 'atlast':
+                self.dims_map = (1024 + self.padding_map, 1024 + self.padding_map)
+            else:
+                self.dims_map = (1000 + self.padding_map, 1000 + self.padding_map)
 
             # Map model
 
@@ -973,7 +1045,7 @@ class FitHandler:
         axes[1,0].title.set_text('maria mapper')
         fig.colorbar(im2)
 
-        truth_rescaled = resize(self.mapdata_truth[0,0], (500, 500), anti_aliasing=True)
+        truth_rescaled = resize(self.mapdata_truth[0,0], truth_rescaled.shape, anti_aliasing=True)
         im3 = axes[1,1].imshow((self.output_map.data[0, 0] - truth_rescaled), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
         axes[1,1].title.set_text('maria - truth')
         fig.colorbar(im3)
