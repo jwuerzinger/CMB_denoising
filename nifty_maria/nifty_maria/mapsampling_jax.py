@@ -71,6 +71,22 @@ instrument = maria.get_instrument('MUSTANG-2')
 
 from maria.instrument import Band
 
+def get_mini():
+    
+    f090 = Band(center=92, # in GHz
+                width=40.0,
+                knee=1,
+                sensitivity=6e-5) # in K sqrt(s)
+
+    # array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
+    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 4, "beam_spacing": 8} # Dummy setup with less detectors
+
+    global instrument
+    # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
+    instrument = maria.get_instrument(array=array)
+
+    return instrument
+
 def get_atlast():
     
     f090 = Band(center=92, # in GHz

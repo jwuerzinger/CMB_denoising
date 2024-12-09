@@ -122,8 +122,6 @@ class FitHandler:
             self.plan = maria.get_plan(scan_pattern="daisy", # scanning pattern
                                 scan_options={"radius": 0.05, "speed": 0.01}, # in degrees
                                 duration=600, # integration time in seconds
-                                # duration=60,
-                                #   duration=300, # integration time in seconds
                                 sample_rate=50, # in Hz
                                 scan_center=self.scan_center, # position in the sky
                                 frame="ra_dec")
@@ -293,8 +291,8 @@ class FitHandler:
             # center=(300.0, -10.0),
             center=self.scan_center,
             frame="ra_dec",
-            width=1.,
-            height=1.,
+            width= 0.1 if self.config == 'mustang' else 1.,
+            height= 0.1 if self.config == 'mustang' else 1.,
             resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
             map_postprocessing={"gaussian_filter": {"sigma": 0} }
         )
@@ -383,7 +381,8 @@ class FitHandler:
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
-        for i in [0, 10, 100, 200]:
+        n = self.instrument.n_dets
+        for i in range(0, n, n//10 if n//10 != 0 else 1):
             im0 = axes[0].plot(self.jax_tods_map[i], label=i)
 
             tods_map = np.float64(self.tod_truthmap.get_field('map').compute())
@@ -460,15 +459,16 @@ class FitHandler:
         
         return 
         
-    def init_gps(self, n_sub: int = 1, samples: jft.evi.Samples = None) -> None:
+    def init_gps(self, n_split: int = 0, samples: jft.evi.Samples = None) -> None:
         '''
         Initialise atmosphere and map GPs. If n_sub and samples are provided, split atmos GPs in n_sub from samples.
         
         Args:
-            n_sub (int): Integer determining how many GPs are used to simulate sub-detector atmosphere responses. Simulates all sub-detectors if -1. Defaults to 1.
-            samples (jft.evi.Samples): Samples obtained in previous fit to use for initialisation. If None, a random initialisation is performed. Defaults to None.
+            n_split (int, optional): Integer determining how many subdetectors to split into. Determines how many GPs are used to simulate sub-detector atmosphere responses with n_sub = 2**n_split. Simulates all sub-detectors if -1. Defaults to 0, resulting in one subdetector GP.
+            samples (jft.evi.Samples, optional): Samples obtained in previous fit to use for initialisation. If None, a random initialisation is performed. Defaults to None.
         
         Dynamic Attributes (Added by Methods):
+            n_split (int): Integer determining how many splittings to apply. Also determines self.n_sub via self.n_sub=2**self.n_split (-1 if n_split = -1).
             n_sub (int): Integer determining how many GPs are used to simulate sub-detector atmosphere responses. Simulates all sub-detectors if -1. Added by FitHandler.init_gps().
             initial_pos (jft.Vector): Vector with initial position to be used in fit. Added by FitHandler.init_gps().
             padding_atmos (int): Integer describing atmosphere padding. Added by FitHandler.init_gps().
@@ -485,86 +485,154 @@ class FitHandler:
             lh (jft.Gaussian): Gaussian Likelihood used in optimisation. Added by FitHandler.init_gps().
         
         Raises:
-            ValueError: If invalid number of subdetectors n_sub or invalid combination fo n_sub and samples is supplied.
+            ValueError: If invalid number of splittings n_split or invalid combination fo n_sub and samples is supplied.
         '''
 
-        self.n_sub = n_sub
+        self.n_split = n_split
+        if self.n_split >= 0:
+            self.n_sub = 2**self.n_split
+        elif self.n_split == -1:
+            self.n_sub = -1
+        else:
+            raise ValueError(f"Invalid splitting {self.n_split} supplied!")
         
         from maria.units import Angle
 
         test = Angle(self.instrument.dets.offsets)
         pos = getattr(test, test.units).T
 
-        print(pos.shape)
-
-        posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
-        posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
-
-        posmask_up = posmask_ud
-        posmask_down = ~posmask_ud
-        posmask_left = posmask_lr
-        posmask_right = ~posmask_lr
+        # TODO: generalise splitting here:
+        if samples is not None and self.n_split >= 1:
+            if self.n_sub != samples.pos['combcf xi'].shape[0]*2:
+                raise ValueError("Only two-fold splitting is supported for now!")
+            
+            initial_pos = {}
+            for k in samples.pos:
+                if k == 'combcf xi':
+                    # broadcast previous fit results to new ones!
+                    initial_pos[k] = jnp.empty( (self.n_sub, samples.pos['combcf xi'].shape[1]) )
+                    for i in range(self.n_sub): # TODO: vectorize
+                        initial_pos[k] = initial_pos[k].at[i].set( samples.pos['combcf xi'][i//2] )
+                else:
+                    initial_pos[k] = samples.pos[k]
         
-        posmask_ul = posmask_up & posmask_left
-        posmask_ur = posmask_up & posmask_right
-        posmask_dl = posmask_down & posmask_left
-        posmask_dr = posmask_down & posmask_right
-        
-        if samples is not None and self.n_sub != 1:
-            print(f"Will initialise GPs for atmosphere in {self.n_sub} parts based on samples.")
-            
-            if self.n_sub == 2:
-                initial_pos = {}
-                for k in samples.pos:
-                    if k == 'combcf xi':
-                        initial_pos[k] = jnp.broadcast_to(
-                            samples.pos['combcf xi'],
-                            (2, samples.pos['combcf xi'].shape[1])
-                        ) # only works for one TOD!
+            self.initial_pos = jft.Vector(initial_pos)
+        elif samples is not None and self.n_split == -1:
+            initial_pos = {}
+            for k in samples.pos:
+                if k == 'combcf xi':
+                    def apply_mask(mask, res_tod):
+                        return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
 
-                    else:
-                        initial_pos[k] = samples.pos[k]
+                    initial_pos[k] = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, samples.pos['combcf xi'])
+                    initial_pos[k] = jnp.sum(initial_pos[k], axis=0)
+                    # initial_pos[k] = jax.numpy.empty( (self.instrument.n_dets, samples.pos['combcf xi'].shape[1]) )
+                    # initial_pos[k] = initial_pos[k].at[posmask_up & posmask_left].set( samples.pos['combcf xi'][0] )
+                    # initial_pos[k] = initial_pos[k].at[posmask_down & posmask_left].set( samples.pos['combcf xi'][1] )
+                    # initial_pos[k] = initial_pos[k].at[posmask_up & posmask_right].set( samples.pos['combcf xi'][2] )
+                    # initial_pos[k] = initial_pos[k].at[posmask_down & posmask_right].set( samples.pos['combcf xi'][3] )
+                else:
+                    initial_pos[k] = samples.pos[k]
+                    
+            self.initial_pos = jft.Vector(initial_pos)
 
-                self.initial_pos = jft.Vector(initial_pos)
-                
-            elif self.n_sub == 4:
-                initial_pos = {}
-                
-                for k in samples.pos:
-                    if k == 'combcf xi':
-                        initial_pos[k] = jax.numpy.empty( (4, samples.pos['combcf xi'].shape[1]) )
-                        initial_pos[k] = initial_pos[k].at[0].set( samples.pos['combcf xi'][0] )
-                        initial_pos[k] = initial_pos[k].at[1].set( samples.pos['combcf xi'][0] )
-                        initial_pos[k] = initial_pos[k].at[2].set( samples.pos['combcf xi'][1] )
-                        initial_pos[k] = initial_pos[k].at[3].set( samples.pos['combcf xi'][1] )
-
-                    else:
-                        initial_pos[k] = samples.pos[k]
-
-                self.initial_pos = jft.Vector(initial_pos)
-            
-            elif self.n_sub == -1:
-                initial_pos = {}
-                for k in samples.pos:
-                    if k == 'combcf xi':
-                        initial_pos[k] = jax.numpy.empty( (self.instrument.n_dets, samples.pos['combcf xi'].shape[1]) )
-                        initial_pos[k] = initial_pos[k].at[posmask_up & posmask_left].set( samples.pos['combcf xi'][0] )
-                        initial_pos[k] = initial_pos[k].at[posmask_down & posmask_left].set( samples.pos['combcf xi'][1] )
-                        initial_pos[k] = initial_pos[k].at[posmask_up & posmask_right].set( samples.pos['combcf xi'][2] )
-                        initial_pos[k] = initial_pos[k].at[posmask_down & posmask_right].set( samples.pos['combcf xi'][3] )
-
-                    else:
-                        initial_pos[k] = samples.pos[k]
-
-                self.initial_pos = jft.Vector(initial_pos)
-            
-            else: raise ValueError("Only 1, 2, 4 and -1 (all) subdets implemented for now.")
-            
-        elif samples is not None and self.n_sub==1:
-            raise ValueError("Samples can only be used for initialisation if n_sub is not 1!")
-        
         else:
-            self.initial_pos = None
+            self.initial_pos = None 
+        
+        # Define makslist (only if n_split is not -1)
+        if self.n_split != -1:
+            # Include tiny offset to avoid double-counting of dets:            
+            min_x, max_x = float(pos[0].min())-1e-9, float(pos[0].max())+1e-9
+            min_y, max_y = float(pos[1].min())-1e-9, float(pos[1].max())+1e-9
+
+            # Compute the step size for each square
+            n_sub_x = 2**(n_split//2)
+            n_sub_y = 2**((n_split+1)//2)
+            x_step = (max_x - min_x) / n_sub_x
+            y_step = (max_y - min_y) / n_sub_y
+
+            self.masklist = []
+            for y_i in range(0, n_sub_y):
+                yval = min_y + y_i * y_step
+                for x_i in range(0, n_sub_x):
+                    xval = min_x + x_i * x_step
+
+                    posmask_x = jnp.array( (pos[0] > xval) & (pos[0] <= xval + x_step) )
+                    posmask_y = jnp.array( (pos[1] > yval) & (pos[1] <= yval + y_step) )
+                    
+                    self.masklist.append( (posmask_x & posmask_y) )
+
+            self.masklist = jnp.array(self.masklist)
+
+        # Previous def of det splitting:
+        # posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
+        # posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
+
+        # posmask_up = posmask_ud
+        # posmask_down = ~posmask_ud
+        # posmask_left = posmask_lr
+        # posmask_right = ~posmask_lr
+        
+        # posmask_ul = posmask_up & posmask_left
+        # posmask_ur = posmask_up & posmask_right
+        # posmask_dl = posmask_down & posmask_left
+        # posmask_dr = posmask_down & posmask_right
+        
+        # if samples is not None and self.n_sub != 1:
+        #     print(f"Will initialise GPs for atmosphere in {self.n_sub} parts based on samples.")
+            
+        #     if self.n_sub == 2:
+        #         initial_pos = {}
+        #         for k in samples.pos:
+        #             if k == 'combcf xi':
+        #                 initial_pos[k] = jnp.broadcast_to(
+        #                     samples.pos['combcf xi'],
+        #                     (2, samples.pos['combcf xi'].shape[1])
+        #                 ) # only works for one TOD!
+
+        #             else:
+        #                 initial_pos[k] = samples.pos[k]
+
+        #         self.initial_pos = jft.Vector(initial_pos)
+                
+        #     elif self.n_sub == 4:
+        #         initial_pos = {}
+                
+        #         for k in samples.pos:
+        #             if k == 'combcf xi':
+        #                 initial_pos[k] = jax.numpy.empty( (4, samples.pos['combcf xi'].shape[1]) )
+        #                 initial_pos[k] = initial_pos[k].at[0].set( samples.pos['combcf xi'][0] )
+        #                 initial_pos[k] = initial_pos[k].at[1].set( samples.pos['combcf xi'][0] )
+        #                 initial_pos[k] = initial_pos[k].at[2].set( samples.pos['combcf xi'][1] )
+        #                 initial_pos[k] = initial_pos[k].at[3].set( samples.pos['combcf xi'][1] )
+
+        #             else:
+        #                 initial_pos[k] = samples.pos[k]
+
+        #         self.initial_pos = jft.Vector(initial_pos)
+            
+        #     elif self.n_sub == -1:
+        #         initial_pos = {}
+        #         for k in samples.pos:
+        #             if k == 'combcf xi':
+        #                 initial_pos[k] = jax.numpy.empty( (self.instrument.n_dets, samples.pos['combcf xi'].shape[1]) )
+        #                 initial_pos[k] = initial_pos[k].at[posmask_up & posmask_left].set( samples.pos['combcf xi'][0] )
+        #                 initial_pos[k] = initial_pos[k].at[posmask_down & posmask_left].set( samples.pos['combcf xi'][1] )
+        #                 initial_pos[k] = initial_pos[k].at[posmask_up & posmask_right].set( samples.pos['combcf xi'][2] )
+        #                 initial_pos[k] = initial_pos[k].at[posmask_down & posmask_right].set( samples.pos['combcf xi'][3] )
+
+        #             else:
+        #                 initial_pos[k] = samples.pos[k]
+
+        #         self.initial_pos = jft.Vector(initial_pos)
+            
+        #     else: raise ValueError("Only 1, 2, 4 and -1 (all) subdets implemented for now.")
+            
+        # elif samples is not None and self.n_sub==1:
+        #     raise ValueError("Samples can only be used for initialisation if n_sub is not 1!")
+        
+        # else:
+        #     self.initial_pos = None
         
         if self.fit_atmos:
             # padding_atmos = 2000
@@ -649,12 +717,14 @@ class FitHandler:
             )
             self.gp_map = cfm_map.finalize()
         
-        from nifty_maria.SignalModels import Signal_TOD_combined
-        from nifty_maria.SignalModels import Signal_TOD_atmosonly
-        from nifty_maria.SignalModels import Signal_TOD_combined_nomappadding
-        from nifty_maria.SignalModels import Signal_TOD_maponly_nomappadding
-        from nifty_maria.SignalModels import Signal_TOD_combined_fourTODs
-        from nifty_maria.SignalModels import Signal_TOD
+        # TODO: Define signal model with generalised masking!
+        from nifty_maria.SignalModels import Signal_TOD_general
+        # from nifty_maria.SignalModels import Signal_TOD_combined
+        # from nifty_maria.SignalModels import Signal_TOD_atmosonly
+        # from nifty_maria.SignalModels import Signal_TOD_combined_nomappadding
+        # from nifty_maria.SignalModels import Signal_TOD_maponly_nomappadding
+        # from nifty_maria.SignalModels import Signal_TOD_combined_fourTODs
+        from nifty_maria.SignalModels import Signal_TOD_alldets
         
         if self.noiselevel == 0.0: noise_cov_inv_tod = lambda x: 1e-8**-2 * x
         elif self.noiselevel == 0.1: noise_cov_inv_tod = lambda x: 1e-4**-2 * x
@@ -665,36 +735,46 @@ class FitHandler:
         # elif self.noiselevel == 1.0: noise_cov_inv_tod = lambda x: 2.5e-4**-2 * x 
         # elif self.noiselevel == 1.0: noise_cov_inv_tod = lambda x: 1.9e-4**-2 * x
         
-        #TODO Add split by dets and clean up!
-        if self.fit_map and self.fit_atmos:
-            if self.padding_map > 0:
-                if self.n_sub == 1 or self.n_sub == 2:
-                    print("Initialising model: Signal_TOD_combined")
-                    self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
-                elif self.n_sub == 4:
-                    print("Initialising model: Signal_TOD_combined_fourTODs")
-                    self.signal_response_tod = Signal_TOD_combined_fourTODs(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_ul, posmask_ur, posmask_dl, posmask_dr, self.sim_truthmap, self.dx, self.dy)
-                else:
-                    print("Initialising model: Signal_TOD")
-                    self.signal_response_tod = Signal_TOD(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
-            else:
-                print("Initialising model: Signal_TOD_combined_nomappadding")
-                self.signal_response_tod = Signal_TOD_combined_nomappadding(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
-        elif self.fit_map and not self.fit_atmos:
-            if self.padding_map > 0:
-                raise ValueError("No model implemented for map-only with padding!")
-            else:
-                print("Initialising model: Signal_TOD_maponly_nomappadding")
-                self.signal_response_tod = Signal_TOD_maponly_nomappadding(self.gp_map, self.dims_map, self.sim_truthmap, self.dx, self.dy)
-        elif not self.fit_map and self.fit_atmos:
-            print("Initialising model: Signal_TOD_atmosonly")
-            self.signal_response_tod = Signal_TOD_atmosonly(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down)
+        if self.n_sub >= 1:
+            print("Initialising: Signal_TOD_general!!")
+            self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy)
+        elif self.n_sub == -1:
+            print("Initialising: Signal_TOD_alldets")
+            self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
         else:
-            raise ValueError("Invalid combination: Need to fit atmosphere and/or map!")
+            raise ValueError("Number of subdetectors not supported!")
+        
+        
+        #TODO Add split by dets and clean up!
+        # if self.fit_map and self.fit_atmos:
+        #     if self.padding_map > 0:
+        #         if self.n_sub == 1 or self.n_sub == 2:
+        #             print("Initialising model: Signal_TOD_combined")
+        #             self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
+        #         elif self.n_sub == 4:
+        #             print("Initialising model: Signal_TOD_combined_fourTODs")
+        #             self.signal_response_tod = Signal_TOD_combined_fourTODs(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_ul, posmask_ur, posmask_dl, posmask_dr, self.sim_truthmap, self.dx, self.dy)
+        #         else:
+        #             print("Initialising model: Signal_TOD")
+        #             self.signal_response_tod = Signal_TOD(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
+        #     else:
+        #         print("Initialising model: Signal_TOD_combined_nomappadding")
+        #         self.signal_response_tod = Signal_TOD_combined_nomappadding(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
+        # elif self.fit_map and not self.fit_atmos:
+        #     if self.padding_map > 0:
+        #         raise ValueError("No model implemented for map-only with padding!")
+        #     else:
+        #         print("Initialising model: Signal_TOD_maponly_nomappadding")
+        #         self.signal_response_tod = Signal_TOD_maponly_nomappadding(self.gp_map, self.dims_map, self.sim_truthmap, self.dx, self.dy)
+        # elif not self.fit_map and self.fit_atmos:
+        #     print("Initialising model: Signal_TOD_atmosonly")
+        #     self.signal_response_tod = Signal_TOD_atmosonly(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down)
+        # else:
+        #     raise ValueError("Invalid combination: Need to fit atmosphere and/or map!")
 
         self.lh = jft.Gaussian( self.noised_jax_tod, noise_cov_inv_tod).amend(self.signal_response_tod)
         
-        print(self.lh)
+        print("Initialised Likelihood:", self.lh)
         
         return 
     
@@ -709,7 +789,6 @@ class FitHandler:
         xi = jft.random_like(sub, self.signal_response_tod.domain)
         res = self.signal_response_tod(xi)
         n = self.instrument.n_dets
-        print(res.shape)
 
         fig, axes = plt.subplots(1, 1, figsize=(16, 4))
 
@@ -1045,7 +1124,7 @@ class FitHandler:
         axes[1,0].title.set_text('maria mapper')
         fig.colorbar(im2)
 
-        truth_rescaled = resize(self.mapdata_truth[0,0], truth_rescaled.shape, anti_aliasing=True)
+        truth_rescaled = resize(self.mapdata_truth[0,0], self.output_map.data[0, 0].shape, anti_aliasing=True)
         im3 = axes[1,1].imshow((self.output_map.data[0, 0] - truth_rescaled), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
         axes[1,1].title.set_text('maria - truth')
         fig.colorbar(im3)
@@ -1185,7 +1264,62 @@ class FitHandler:
         # plt.show()
         
         return fig
+    
+    # Old function TODO: remove
+    # def plot_subdets(self, z: float = np.inf) -> None:
+    #     '''
+    #     Plots detector with n_sub subdetectors highlighted in color.
         
+    #     Args:
+    #         z (float, optional): Gaussian beam distance in instrument. Defaults to np.inf.
+
+    #     Raises:
+    #         ValueError: If invalid n_sub value is supplied.
+    #     '''
+    #     from matplotlib.collections import EllipseCollection
+    #     from maria.units import Angle
+
+    #     # cmb_cmap = plt.get_cmap('cmb')
+    #     cmb_cmap = plt.get_cmap('viridis')
+
+    #     # re-define masks. TODO: automate & define globally.
+    #     test = Angle(self.instrument.dets.offsets)
+    #     pos = getattr(test, test.units).T
+        
+    #     print("pos", pos.shape)
+
+    #     posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
+    #     posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
+
+    #     posmask_up = posmask_ud
+    #     posmask_down = ~posmask_ud
+    #     posmask_left = posmask_lr
+    #     posmask_right = ~posmask_lr
+
+    #     col = np.zeros(posmask_right.shape)
+    #     if self.n_sub == 4:
+    #         col[posmask_up & posmask_left] = 1.0
+    #         col[posmask_up & posmask_right] = 0.25
+    #         col[posmask_down & posmask_left] = 0.5
+    #         col[posmask_down & posmask_right] = 0.75
+    #     elif self.n_sub == 2:
+    #         col[posmask_up] = 0.25
+    #         col[posmask_down] = 1.0
+    #     elif self.n_sub == 1:
+    #         col = np.ones(self.instrument.n_dets)
+    #     elif self.n_sub == -1:
+    #         col = np.linspace(0, 1, self.instrument.n_dets)
+    #     else:
+    #         raise ValueError(f"Value for n_sub {self.n_sub} is not supported!")
+
+    #     fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=160)
+
+    #     self.plot_instrument(fig, ax, col, cmb_cmap, z=z)
+
+    #     fig.suptitle(f"n_sub = {self.n_sub}")
+    #     plt.show()
+        
+    #     return 
     def plot_subdets(self, z: float = np.inf) -> None:
         '''
         Plots detector with n_sub subdetectors highlighted in color.
@@ -1196,39 +1330,19 @@ class FitHandler:
         Raises:
             ValueError: If invalid n_sub value is supplied.
         '''
-        from matplotlib.collections import EllipseCollection
         from maria.units import Angle
 
-        # cmb_cmap = plt.get_cmap('cmb')
-        cmb_cmap = plt.get_cmap('viridis')
+        instrument = self.instrument
 
-        # re-define masks. TODO: automate & define globally.
-        test = Angle(self.instrument.dets.offsets)
+        cmb_cmap = plt.get_cmap('cmb')
+        # cmb_cmap = plt.get_cmap('viridis')
+
+        test = Angle(instrument.dets.offsets)
         pos = getattr(test, test.units).T
-
-        posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
-        posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
-
-        posmask_up = posmask_ud
-        posmask_down = ~posmask_ud
-        posmask_left = posmask_lr
-        posmask_right = ~posmask_lr
-
-        col = np.zeros(posmask_right.shape)
-        if self.n_sub == 4:
-            col[posmask_up & posmask_left] = 1.0
-            col[posmask_up & posmask_right] = 0.25
-            col[posmask_down & posmask_left] = 0.5
-            col[posmask_down & posmask_right] = 0.75
-        elif self.n_sub == 2:
-            col[posmask_up] = 0.25
-            col[posmask_down] = 1.0
-        elif self.n_sub == 1:
-            col = np.ones(self.instrument.n_dets)
-        elif self.n_sub == -1:
-            col = np.linspace(0, 1, self.instrument.n_dets)
-        else:
-            raise ValueError(f"Value for n_sub {self.n_sub} is not supported!")
+        
+        col = np.zeros(pos[0].shape)
+        for i in range(len(self.masklist)):
+            col[self.masklist[i]] = i+1
 
         fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=160)
 
@@ -1250,9 +1364,9 @@ class FitHandler:
             cmb_cmap (plt.Colormap): Colormap to use for plotting.
             z (float, optional): Gaussian beam distance in instrument. Defaults to np.inf.
         '''
-        import matplotlib as mpl
+        # import matplotlib as mpl
         from matplotlib.collections import EllipseCollection
-        from matplotlib.patches import Patch
+        # from matplotlib.patches import Patch
         # from matplotlib.colors import Normalize
         from maria.units import Angle
 
