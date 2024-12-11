@@ -25,7 +25,8 @@ for i in n_splits:
     if i == 0: prior_s = fit.draw_prior_sample()
     
     # Perform fit
-    samples, state = fit.perform_fit(n_it=30, printevery=5)
+    if i == -1: samples, state = fit.perform_fit(n_it=30, printevery=1)
+    else: samples, state = fit.perform_fit(n_it=30, printevery=5)
     
     # Show results:
     fit.printfitresults(samples)
