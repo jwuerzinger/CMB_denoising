@@ -84,7 +84,7 @@ class FitHandler:
         >>> fit.printfitresults(samples)
         >>> fit.plotfitresults(samples)
     '''
-    def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast_debug', noiselevel: int = 1.0) -> None:
+    def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast_debug', noiselevel: int = 1.0, plotsdir: str = None) -> None:
         '''
         Initialises the FitHandler with base attributes.
         
@@ -93,6 +93,7 @@ class FitHandler:
             fit_atmos (bool, optional): Perform fit of atmosphere if True. Defaults to True.
             config (str, optional): The detector configuraion to run on. Options are: 'mustang', 'atlast' and 'atlast_debug'. Defaults to 'atlast_debug'.
             noiselevel (float, optional): The fraction of noise to add. Defaults to 1.0.
+            plotsdir (str, optional): Directory to save results in. Defaults to None, resulting in plt.show().
             
         Raises:
             ValueError: If invalid configuration is used.
@@ -103,6 +104,9 @@ class FitHandler:
         self.fit_atmos = fit_atmos
         self.config = config
         self.noiselevel = noiselevel
+        self.plotsdir = plotsdir
+        
+        if self.plotsdir is not None: os.system(f"mkdir {self.plotsdir}")
         
         if self.config == 'mustang':
             self.scan_center = (150, 10)
@@ -131,14 +135,18 @@ class FitHandler:
             self.instrument = nifty_maria.mapsampling_jax.instrument
             self.instrument.plot()
             
+            noiseval = 2.5e-4 if self.noiselevel == 1.0 else 1e-7
+            print(f"Running with noise value: {noiseval}")
             self.params = { 
                 'tod_offset' : (1e-5, 0.99e-5),
                 'tod_fluct' : (0.0015, 0.0001),
                 'tod_loglog' : (-2.45, 0.1),
                 'map_offset' : (1e-8, 1e-7),
                 'map_fluct' : (5.6e-5, 1e-6),
-                'map_loglog' : (-2.5, 0.1),
-                'noise' : lambda x: 2.5e-4**-2 * x, # TODO: generalize!
+                # 'map_loglog' : (-2.5, 0.1),
+                'map_loglog' : (-3.88, 0.1),
+                # 'noise' : lambda x: 2.5e-4**-2 * x, # TODO: generalize!
+                'noise' : lambda x: noiseval**-2 * x,
             }
             
         elif self.config == 'atlast':
@@ -287,6 +295,8 @@ class FitHandler:
         '''
         from maria.mappers import BinMapper
 
+        cmb_cmap = plt.get_cmap('cmb')
+        
         mapper_truthmap = BinMapper(
             # center=(300.0, -10.0),
             center=self.scan_center,
@@ -307,15 +317,16 @@ class FitHandler:
 
         fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
-        im0 = axes[0].imshow(self.output_truthmap.data[0].T)
+        im0 = axes[0].imshow(self.output_truthmap.data[0].T, cmap=cmb_cmap)
         fig.colorbar(im0)
         axes[0].title.set_text("Noisy image (Mapper output)")
 
-        im1 = axes[1].imshow(self.mapdata_truth[0,0])
+        im1 = axes[1].imshow(self.mapdata_truth[0,0], cmap=cmb_cmap)
         fig.colorbar(im1)
         axes[1].title.set_text("True Image")
 
-        plt.show()
+        if self.plotsdir is None: plt.show()
+        else: plt.savefig(f"{self.plotsdir}/reco_maria.png")
         
         # Run proper mapmaker TODO: customize per fit
         if self.config == 'mustang':
@@ -364,7 +375,7 @@ class FitHandler:
         Sample TODs using jax map sampling, make plots comparing to TODs generated with maria and decorate self with simulated TODs.
         
         Args:
-            use_truth_slope (bool): Boolean determining how slopes and offsets used for detrending atmosphere TODs are determined. If True, slopes and offsets are taken from simulated atmosphere TODs, otherwise the total simulated data (including noise) is used. Defaults to False.
+            use_truth_slope (bool, optional): Boolean determining how slopes and offsets used for detrending atmosphere TODs are determined. If True, slopes and offsets are taken from simulated atmosphere TODs, otherwise the total simulated data (including noise) is used. Defaults to False.
         
         Dynamic Attributes (Added by Methods):
             jax_tods_map (array): Array with map TODs generated with jax. Added by FitHandler.sample_jax_tods().
@@ -397,12 +408,8 @@ class FitHandler:
         axes[2].title.set_text(f'jax map - true map, TOD0-{i}')
         axes[2].legend()
 
-        plt.show()
-        
-        # Next, create tod data for training
-
-        # Add n TODs for atmos:
-        n = self.instrument.n_dets
+        if self.plotsdir is None: plt.show()
+        else: plt.savefig(f"{self.plotsdir}/jax_map_agreement.png")
 
         self.jax_tods_atmos = self.tod_truthmap.get_field('atmosphere')
         # noised_jax_tod = np.float64(jax_tods_map) + np.float64(jax_tods_atmos) + np.float64(tod_truthmap.components['noise']*noiselevel)
@@ -413,18 +420,45 @@ class FitHandler:
             self.noised_jax_tod += np.float64(self.jax_tods_atmos)
         if self.fit_map:
             self.noised_jax_tod += np.float64(self.jax_tods_map)
-        # denoised_jax_tod = noised_jax_tod - np.float64(tod_truthmap.get_field('noise')*noiselevel)
+            
+        # In atmos-only fit: only consider 0th TOD:
+        if self.fit_atmos and not self.fit_map:
+            print("Only considering 0th TOD!")
+            self.noised_jax_tod = np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)[0] + np.float64(self.jax_tods_atmos)[0]
+            self.noised_jax_tod = self.noised_jax_tod[None, :]
+        
+            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)[0]
+        
+        else:
+            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)
 
-        # atmos-only:
-        # noised_jax_tod = np.float64(jax_tods_atmos[:n]) + np.float64(tod_truthmap.get_field('noise')*noiselevel)[:n]
-
-        # re-subtract noise:
-        self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)
+        slopes_tod_truth = (self.jax_tods_atmos) / (self.jax_tods_atmos[0])
+        slopes_tod_truth = np.float64(slopes_tod_truth.mean(axis=1))
+        slopes_tod = self.noised_jax_tod / self.noised_jax_tod[0]
+        slopes_tod = np.float64(slopes_tod.mean(axis=1))
+        
+        offset_tod_truth = np.float64(self.jax_tods_atmos.mean(axis=1))
+        offset_tod = np.float64(self.noised_jax_tod.mean(axis=1))
+        
+        if self.fit_atmos and not self.fit_map:
+            slopes_tod = slopes_tod[None]
+            offset_tod = offset_tod[None]
+            
+        if use_truth_slope:
+            self.slopes_tod = slopes_tod_truth
+            self.offset_tod = offset_tod_truth
+        else:
+            self.slopes_tod = slopes_tod
+            self.offset_tod = offset_tod
+        
+        # Get simplified atmosphere tods for validation
+        self.atmos_tod_simplified = (self.jax_tods_atmos - self.offset_tod[:, None])/self.slopes_tod[:, None]
 
         print("Noise stddev:", np.std(self.tod_truthmap.get_field('noise').compute()))
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
+        n = self.noised_jax_tod.shape[0]
         for i in range(0, n, n//10 if n//10 != 0 else 1):
             im0 = axes[0].plot(self.jax_tods_map[i], label=i)
             im1 = axes[1].plot(self.jax_tods_atmos[i], label=i)
@@ -437,25 +471,8 @@ class FitHandler:
         axes[2].title.set_text(f'Total TOD0-{i}, noise={self.noiselevel}')
         axes[2].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
 
-        plt.show()
-        
-        slopes_tod_truth = (self.jax_tods_atmos) / (self.jax_tods_atmos[0])
-        slopes_tod_truth = np.float64(slopes_tod_truth.mean(axis=1))
-        slopes_tod = self.noised_jax_tod / self.noised_jax_tod[0]
-        slopes_tod = np.float64(slopes_tod.mean(axis=1))
-        
-        offset_tod_truth = np.float64(self.jax_tods_atmos.mean(axis=1))
-        offset_tod = np.float64(self.noised_jax_tod.mean(axis=1))
-        
-        if use_truth_slope:
-            self.slopes_tod = slopes_tod_truth
-            self.offset_tod = offset_tod_truth
-        else:
-            self.slopes_tod = slopes_tod
-            self.offset_tod = offset_tod
-        
-        # Get simplified atmosphere tods for validation
-        self.atmos_tod_simplified = (self.jax_tods_atmos - self.offset_tod[:, None])/self.slopes_tod[:, None]
+        if self.plotsdir is None: plt.show()
+        else: plt.savefig(f"{self.plotsdir}/input_TODs.png")
         
         return 
         
@@ -542,8 +559,8 @@ class FitHandler:
         # Define makslist (only if n_split is not -1)
         if self.n_split != -1:
             # Include tiny offset to avoid double-counting of dets:            
-            min_x, max_x = float(pos[0].min())-1e-9, float(pos[0].max())+1e-9
-            min_y, max_y = float(pos[1].min())-1e-9, float(pos[1].max())+1e-9
+            min_x, max_x = float(pos[0].min())-1e-12, float(pos[0].max())+1e-12
+            min_y, max_y = float(pos[1].min())-1e-12, float(pos[1].max())+1e-12
 
             # Compute the step size for each square
             n_sub_x = 2**(n_split//2)
@@ -563,76 +580,6 @@ class FitHandler:
                     self.masklist.append( (posmask_x & posmask_y) )
 
             self.masklist = jnp.array(self.masklist)
-
-        # Previous def of det splitting:
-        # posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
-        # posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
-
-        # posmask_up = posmask_ud
-        # posmask_down = ~posmask_ud
-        # posmask_left = posmask_lr
-        # posmask_right = ~posmask_lr
-        
-        # posmask_ul = posmask_up & posmask_left
-        # posmask_ur = posmask_up & posmask_right
-        # posmask_dl = posmask_down & posmask_left
-        # posmask_dr = posmask_down & posmask_right
-        
-        # if samples is not None and self.n_sub != 1:
-        #     print(f"Will initialise GPs for atmosphere in {self.n_sub} parts based on samples.")
-            
-        #     if self.n_sub == 2:
-        #         initial_pos = {}
-        #         for k in samples.pos:
-        #             if k == 'combcf xi':
-        #                 initial_pos[k] = jnp.broadcast_to(
-        #                     samples.pos['combcf xi'],
-        #                     (2, samples.pos['combcf xi'].shape[1])
-        #                 ) # only works for one TOD!
-
-        #             else:
-        #                 initial_pos[k] = samples.pos[k]
-
-        #         self.initial_pos = jft.Vector(initial_pos)
-                
-        #     elif self.n_sub == 4:
-        #         initial_pos = {}
-                
-        #         for k in samples.pos:
-        #             if k == 'combcf xi':
-        #                 initial_pos[k] = jax.numpy.empty( (4, samples.pos['combcf xi'].shape[1]) )
-        #                 initial_pos[k] = initial_pos[k].at[0].set( samples.pos['combcf xi'][0] )
-        #                 initial_pos[k] = initial_pos[k].at[1].set( samples.pos['combcf xi'][0] )
-        #                 initial_pos[k] = initial_pos[k].at[2].set( samples.pos['combcf xi'][1] )
-        #                 initial_pos[k] = initial_pos[k].at[3].set( samples.pos['combcf xi'][1] )
-
-        #             else:
-        #                 initial_pos[k] = samples.pos[k]
-
-        #         self.initial_pos = jft.Vector(initial_pos)
-            
-        #     elif self.n_sub == -1:
-        #         initial_pos = {}
-        #         for k in samples.pos:
-        #             if k == 'combcf xi':
-        #                 initial_pos[k] = jax.numpy.empty( (self.instrument.n_dets, samples.pos['combcf xi'].shape[1]) )
-        #                 initial_pos[k] = initial_pos[k].at[posmask_up & posmask_left].set( samples.pos['combcf xi'][0] )
-        #                 initial_pos[k] = initial_pos[k].at[posmask_down & posmask_left].set( samples.pos['combcf xi'][1] )
-        #                 initial_pos[k] = initial_pos[k].at[posmask_up & posmask_right].set( samples.pos['combcf xi'][2] )
-        #                 initial_pos[k] = initial_pos[k].at[posmask_down & posmask_right].set( samples.pos['combcf xi'][3] )
-
-        #             else:
-        #                 initial_pos[k] = samples.pos[k]
-
-        #         self.initial_pos = jft.Vector(initial_pos)
-            
-        #     else: raise ValueError("Only 1, 2, 4 and -1 (all) subdets implemented for now.")
-            
-        # elif samples is not None and self.n_sub==1:
-        #     raise ValueError("Samples can only be used for initialisation if n_sub is not 1!")
-        
-        # else:
-        #     self.initial_pos = None
         
         if self.fit_atmos:
             # padding_atmos = 2000
@@ -673,7 +620,9 @@ class FitHandler:
             )
 
             if self.n_sub == -1: self.gp_tod = cfm_tod.finalize(self.instrument.n_dets)
-            else: self.gp_tod = cfm_tod.finalize(self.n_sub)
+            else: 
+                if self.n_sub > self.instrument.n_dets: raise ValueError(f"ERROR: self.n_sub = {self.n_sub} is not allowed to be larger than self.instrument.n_dets = {self.instrument.n_dets}!")
+                self.gp_tod = cfm_tod.finalize(self.n_sub)
             
             print("Initialised gp_tod:", self.gp_tod)
         
@@ -718,13 +667,7 @@ class FitHandler:
             self.gp_map = cfm_map.finalize()
         
         # TODO: Define signal model with generalised masking!
-        from nifty_maria.SignalModels import Signal_TOD_general
-        # from nifty_maria.SignalModels import Signal_TOD_combined
-        # from nifty_maria.SignalModels import Signal_TOD_atmosonly
-        # from nifty_maria.SignalModels import Signal_TOD_combined_nomappadding
-        # from nifty_maria.SignalModels import Signal_TOD_maponly_nomappadding
-        # from nifty_maria.SignalModels import Signal_TOD_combined_fourTODs
-        from nifty_maria.SignalModels import Signal_TOD_alldets
+        from nifty_maria.SignalModels import Signal_TOD_general, Signal_TOD_alldets, Signal_TOD_alldets_maponly, Signal_TOD_atmos
         
         if self.noiselevel == 0.0: noise_cov_inv_tod = lambda x: 1e-8**-2 * x
         elif self.noiselevel == 0.1: noise_cov_inv_tod = lambda x: 1e-4**-2 * x
@@ -736,41 +679,25 @@ class FitHandler:
         # elif self.noiselevel == 1.0: noise_cov_inv_tod = lambda x: 1.9e-4**-2 * x
         
         if self.n_sub >= 1:
-            print("Initialising: Signal_TOD_general!!")
-            self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy)
+            if self.fit_atmos and self.fit_map:
+                print("Initialising: Signal_TOD_general!!")
+                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy)
+            elif self.fit_atmos and not self.fit_map:
+                print("Initialising: Signal_TOD_atmos!!")
+                self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos)
+            else:
+                raise ValueError("Config not supported!")
         elif self.n_sub == -1:
-            print("Initialising: Signal_TOD_alldets")
-            self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
+            if self.fit_atmos and self.fit_map:
+                print("Initialising: Signal_TOD_alldets")
+                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
+            elif not self.fit_atmos and self.fit_map:
+                print("Initialising: Signal_TOD_alldets_atmosonly")
+                self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy)
+            else:
+                raise ValueError("Config not supported!")
         else:
             raise ValueError("Number of subdetectors not supported!")
-        
-        
-        #TODO Add split by dets and clean up!
-        # if self.fit_map and self.fit_atmos:
-        #     if self.padding_map > 0:
-        #         if self.n_sub == 1 or self.n_sub == 2:
-        #             print("Initialising model: Signal_TOD_combined")
-        #             self.signal_response_tod = Signal_TOD_combined(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
-        #         elif self.n_sub == 4:
-        #             print("Initialising model: Signal_TOD_combined_fourTODs")
-        #             self.signal_response_tod = Signal_TOD_combined_fourTODs(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, posmask_ul, posmask_ur, posmask_dl, posmask_dr, self.sim_truthmap, self.dx, self.dy)
-        #         else:
-        #             print("Initialising model: Signal_TOD")
-        #             self.signal_response_tod = Signal_TOD(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
-        #     else:
-        #         print("Initialising model: Signal_TOD_combined_nomappadding")
-        #         self.signal_response_tod = Signal_TOD_combined_nomappadding(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down, self.sim_truthmap, self.dx, self.dy)
-        # elif self.fit_map and not self.fit_atmos:
-        #     if self.padding_map > 0:
-        #         raise ValueError("No model implemented for map-only with padding!")
-        #     else:
-        #         print("Initialising model: Signal_TOD_maponly_nomappadding")
-        #         self.signal_response_tod = Signal_TOD_maponly_nomappadding(self.gp_map, self.dims_map, self.sim_truthmap, self.dx, self.dy)
-        # elif not self.fit_map and self.fit_atmos:
-        #     print("Initialising model: Signal_TOD_atmosonly")
-        #     self.signal_response_tod = Signal_TOD_atmosonly(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, posmask_up, posmask_down)
-        # else:
-        #     raise ValueError("Invalid combination: Need to fit atmosphere and/or map!")
 
         self.lh = jft.Gaussian( self.noised_jax_tod, noise_cov_inv_tod).amend(self.signal_response_tod)
         
@@ -788,7 +715,8 @@ class FitHandler:
         self.key, sub = jax.random.split(self.key)
         xi = jft.random_like(sub, self.signal_response_tod.domain)
         res = self.signal_response_tod(xi)
-        n = self.instrument.n_dets
+        # n = self.instrument.n_dets
+        n = self.noised_jax_tod.shape[0]
 
         fig, axes = plt.subplots(1, 1, figsize=(16, 4))
 
@@ -826,7 +754,8 @@ class FitHandler:
         elif fit_type == 'full':
             print("Running full fit!")
             n_samples = 4
-            sample_mode = lambda x: "nonlinear_resample" if x >= 1 else "linear_resample"
+            # sample_mode = lambda x: "nonlinear_resample" if x >= 1 else "linear_resample"
+            sample_mode = "nonlinear_resample"
         else:
             raise ValueError(f"fit_type {fit_type} not supported!")
 
@@ -840,9 +769,12 @@ class FitHandler:
                 samples (jft.evi.Samples): Samples to perform plots for.
                 opt_state (jft.optimize_kl.OptimizeVIState): Optimisation state to plot.
             '''
+            cmb_cmap = plt.get_cmap('cmb')
+            
             iter = opt_state[0]
             # printevery = 1 # 3
-            n = self.instrument.n_dets
+            # n = self.instrument.n_dets
+            n = self.noised_jax_tod.shape[0]
             if iter % printevery != 0: return
 
             fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
@@ -857,7 +789,9 @@ class FitHandler:
             axes_tods[0].title.set_text('total mean pred. & truth (no noise)')
             axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
             axes_tods[1].title.set_text('total mean pred. - truth (no noise)')
-            axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+            # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+            if self.plotsdir is None: plt.show()
+            else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_TODagreement.png")
 
             if self.fit_atmos:
                 fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
@@ -884,7 +818,10 @@ class FitHandler:
                 axes_tods[0].title.set_text('mean atmos pred. & simplified truth (no noise)')
                 axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
                 axes_tods[1].title.set_text('mean atmos pred. - simplified truth (no noise)')
-                axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+                # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+                
+                if self.plotsdir is None: plt.show()
+                else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_simplified_atmos.png")
 
             if self.fit_map:
                 fig_map, axes_map = plt.subplots(1, 3, figsize=(16, 6))
@@ -894,21 +831,22 @@ class FitHandler:
                 else:
                     mean_map, _ = jft.mean_and_std(tuple(self.gp_map(s) for s in samples))
 
-                im0 = axes_map[0].imshow(mean_map)
+                im0 = axes_map[0].imshow(mean_map, cmap=cmb_cmap)
                 axes_map[0].title.set_text('mean map pred.')
                 fig_map.colorbar(im0)
 
-                im1 = axes_map[1].imshow(mean_map - self.mapdata_truth[0, 0])
+                im1 = axes_map[1].imshow(mean_map - self.mapdata_truth[0, 0], cmap=cmb_cmap)
                 axes_map[1].title.set_text('mean map - truth')
                 fig_map.colorbar(im1)
 
-                im2 = axes_map[2].imshow(self.mapdata_truth[0, 0])
+                im2 = axes_map[2].imshow(self.mapdata_truth[0, 0], cmap=cmb_cmap)
                 axes_map[2].title.set_text('truth')
                 fig_map.colorbar(im2)
 
                 fig_map.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
             
-            plt.show()
+                if self.plotsdir is None: plt.show()
+                else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_map.png")
             
             return
 
@@ -925,8 +863,8 @@ class FitHandler:
             key=k_o, # random jax init
             draw_linear_kwargs=dict( # sampling parameters
                 cg_name="SL",
-                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=60),
-                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=20), #TODO: fine-tune!
+                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=1000),
+                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=20), #TODO: fine-tune!
             ),
             nonlinearly_update_kwargs=dict( # map from multivariate gaussian to more compl. distribution (coordinate transformations)
                 minimize_kwargs=dict(
@@ -938,8 +876,8 @@ class FitHandler:
             ),
             kl_kwargs=dict( # shift transformed multivar gauss to best match true posterior
                 minimize_kwargs=dict(
-                    # name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=60 # map
-                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=20 # map
+                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=100 # map
+                    # name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=20 # map
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),
@@ -978,8 +916,11 @@ class FitHandler:
         Args:
             samples (jft.evi.Samples): Samples to plot fit results for.
         '''
+        cmb_cmap = plt.get_cmap('cmb')
+        
         res = self.signal_response_tod(samples.pos)
-        n = self.instrument.n_dets
+        # n = self.instrument.n_dets
+        n = self.noised_jax_tod.shape[0]
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
@@ -996,7 +937,8 @@ class FitHandler:
         axes[2].title.set_text('truth')
         axes[2].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
 
-        plt.show()
+        if self.plotsdir is None: plt.show()
+        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_TODagreement_final.png")
         
         if self.fit_map: 
             # plot maximum of posterior (mode)
@@ -1007,11 +949,11 @@ class FitHandler:
 
             fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
-            im0 = axes[0].imshow(sig_map)
+            im0 = axes[0].imshow(sig_map, cmap=cmb_cmap)
             axes[0].title.set_text('MAP - best fit image')
             fig.colorbar(im0)
 
-            im1 = axes[1].imshow( sig_map - self.mapdata_truth[0, 0] )
+            im1 = axes[1].imshow( sig_map - self.mapdata_truth[0, 0], cmap=cmb_cmap)
             axes[1].title.set_text('MAP - map truth')
             # im1 = axes[1].imshow( (sig_map - mapdata_truth) )
             # axes[1].title.set_text('diff prediction - map truth')
@@ -1019,7 +961,8 @@ class FitHandler:
 
             fig.suptitle(f"n_sub = {self.n_sub}")
 
-            plt.show()
+            if self.plotsdir is None: plt.show()
+            else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_mapagreement_final.png")
         
         return 
     
@@ -1037,24 +980,30 @@ class FitHandler:
 
         colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
 
-        if self.padding_map > 0:
-            gp_map_nopad = jax.numpy.broadcast_to(self.gp_map(samples.pos), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
-        else:
-            gp_map_nopad = jax.numpy.broadcast_to(self.gp_map(samples.pos), (1, 1, self.dims_map[0], self.dims_map[1]))
-        res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+        components = [self.signal_response_tod(samples.pos)]
+        labels = ['pred. total']
+        linestyles = ['-']
 
-        if not self.fit_atmos:
-            components = [self.signal_response_tod(samples.pos), res_map, self.tod_truthmap.get_field('map')]
-            labels = ['pred. total', 'pred. map', 'true map']
-            linestyles = ['-', '-', '--']
-        else:
+        if self.fit_map:
+            if self.padding_map > 0:
+                gp_map_nopad = jax.numpy.broadcast_to(self.gp_map(samples.pos), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+            else:
+                gp_map_nopad = jax.numpy.broadcast_to(self.gp_map(samples.pos), (1, 1, self.dims_map[0], self.dims_map[1]))
+
+            res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+            
+            components += [res_map, self.tod_truthmap.get_field('map')]
+            labels += ['pred. map', 'true map']
+            linestyles += ['-', '--']
+
+        if self.fit_atmos:
             
             x_tod = {k: samples.pos[k] for k in samples.pos if 'comb' in k}
             res_tods = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
 
-            components = [self.signal_response_tod(samples.pos), res_map, self.tod_truthmap.get_field('map'), res_tods, self.tod_truthmap.get_field('atmosphere')]
-            labels = ['pred. total', 'pred. map', 'true map', 'pred. atmos', 'true atmos']
-            linestyles = ['-', '-', '--', '-', '--']
+            components += [res_tods, self.tod_truthmap.get_field('atmosphere')]
+            labels += ['pred. atmos', 'true atmos']
+            linestyles += ['-', '--']
 
         fig_tods, axes_tods = plt.subplots(1, 1, figsize=(16, 6))
         for i in range(len(components)):
@@ -1086,6 +1035,9 @@ class FitHandler:
         axes_tods.set_xlim(f_mids.min(), f_mids.max())
         axes_tods.loglog()
         axes_tods.legend()
+        
+        if self.plotsdir is None: plt.show()
+        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_powerspectrum.png")
         
         return
     
@@ -1137,7 +1089,8 @@ class FitHandler:
         axes[2,1].title.set_text('best fit - truth')
         fig.colorbar(im4)
 
-        plt.show()
+        if self.plotsdir is None: plt.show()
+        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_reco_comp.png")
         
         return 
         
@@ -1341,15 +1294,19 @@ class FitHandler:
         pos = getattr(test, test.units).T
         
         col = np.zeros(pos[0].shape)
-        for i in range(len(self.masklist)):
-            col[self.masklist[i]] = i+1
+        if self.n_sub > 0:
+            for i in range(len(self.masklist)):
+                col[self.masklist[i]] = i+1
+        else: col = np.linspace(0, 1, self.instrument.n_dets)
 
         fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=160)
 
         self.plot_instrument(fig, ax, col, cmb_cmap, z=z)
 
         fig.suptitle(f"n_sub = {self.n_sub}")
-        plt.show()
+
+        if self.plotsdir is None: plt.show()
+        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_detector.png")
         
         return 
     
