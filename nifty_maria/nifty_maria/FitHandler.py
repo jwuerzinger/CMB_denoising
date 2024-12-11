@@ -326,7 +326,9 @@ class FitHandler:
         axes[1].title.set_text("True Image")
 
         if self.plotsdir is None: plt.show()
-        else: plt.savefig(f"{self.plotsdir}/reco_maria.png")
+        else: 
+            plt.savefig(f"{self.plotsdir}/reco_maria.png")
+            plt.close()
         
         # Run proper mapmaker TODO: customize per fit
         if self.config == 'mustang':
@@ -409,7 +411,9 @@ class FitHandler:
         axes[2].legend()
 
         if self.plotsdir is None: plt.show()
-        else: plt.savefig(f"{self.plotsdir}/jax_map_agreement.png")
+        else: 
+            plt.savefig(f"{self.plotsdir}/jax_map_agreement.png")
+            plt.close()
 
         self.jax_tods_atmos = self.tod_truthmap.get_field('atmosphere')
         # noised_jax_tod = np.float64(jax_tods_map) + np.float64(jax_tods_atmos) + np.float64(tod_truthmap.components['noise']*noiselevel)
@@ -472,7 +476,9 @@ class FitHandler:
         axes[2].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
 
         if self.plotsdir is None: plt.show()
-        else: plt.savefig(f"{self.plotsdir}/input_TODs.png")
+        else: 
+            plt.savefig(f"{self.plotsdir}/input_TODs.png")
+            plt.close()
         
         return 
         
@@ -791,7 +797,9 @@ class FitHandler:
             axes_tods[1].title.set_text('total mean pred. - truth (no noise)')
             # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
             if self.plotsdir is None: plt.show()
-            else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_TODagreement.png")
+            else:
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_TODagreement.png")
+                plt.close()
 
             if self.fit_atmos:
                 fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
@@ -821,7 +829,9 @@ class FitHandler:
                 # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
                 
                 if self.plotsdir is None: plt.show()
-                else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_simplified_atmos.png")
+                else:
+                    plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_simplified_atmos.png")
+                    plt.close()
 
             if self.fit_map:
                 fig_map, axes_map = plt.subplots(1, 3, figsize=(16, 6))
@@ -846,7 +856,9 @@ class FitHandler:
                 fig_map.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
             
                 if self.plotsdir is None: plt.show()
-                else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_map.png")
+                else:
+                    plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_map.png")
+                    plt.close()
             
             return
 
@@ -938,7 +950,9 @@ class FitHandler:
         axes[2].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
 
         if self.plotsdir is None: plt.show()
-        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_TODagreement_final.png")
+        else:
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_TODagreement_final.png")
+            plt.close()
         
         if self.fit_map: 
             # plot maximum of posterior (mode)
@@ -962,7 +976,9 @@ class FitHandler:
             fig.suptitle(f"n_sub = {self.n_sub}")
 
             if self.plotsdir is None: plt.show()
-            else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_mapagreement_final.png")
+            else:
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_mapagreement_final.png")
+                plt.close()
         
         return 
     
@@ -1037,7 +1053,9 @@ class FitHandler:
         axes_tods.legend()
         
         if self.plotsdir is None: plt.show()
-        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_powerspectrum.png")
+        else:
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_powerspectrum.png")
+            plt.close()
         
         return
     
@@ -1090,7 +1108,9 @@ class FitHandler:
         fig.colorbar(im4)
 
         if self.plotsdir is None: plt.show()
-        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_reco_comp.png")
+        else:
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_reco_comp.png")
+            plt.close()
         
         return 
         
@@ -1138,9 +1158,8 @@ class FitHandler:
             frames.append(img)
 
         # Save the frames as a GIF
-        # frames[0].save('testgif_atmosphere.gif', save_all=True, append_images=frames[1:], duration=1, loop=0)
-        # frames[0].save(f'{label}_mustang_new.gif', save_all=True, append_images=frames[1:], duration=1, loop=0)
-        frames[0].save(figname, save_all=True, append_images=frames[1:], duration=1, loop=0)
+        if self.plotsdir is None: frames[0].save(figname, save_all=True, append_images=frames[1:], duration=1, loop=0)
+        else: frames[0].save(f"{self.plotsdir}/{figname}", save_all=True, append_images=frames[1:], duration=1, loop=0)
         
         return 
     
@@ -1306,7 +1325,9 @@ class FitHandler:
         fig.suptitle(f"n_sub = {self.n_sub}")
 
         if self.plotsdir is None: plt.show()
-        else: plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_detector.png")
+        else: 
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_detector.png")
+            plt.close()
         
         return 
     
