@@ -143,8 +143,7 @@ class FitHandler:
                 'tod_loglog' : (-2.45, 0.1),
                 'map_offset' : (1e-8, 1e-7),
                 'map_fluct' : (5.6e-5, 1e-6),
-                # 'map_loglog' : (-2.5, 0.1),
-                'map_loglog' : (-3.88, 0.1),
+                'map_loglog' : (-2.5, 0.1),
                 # 'noise' : lambda x: 2.5e-4**-2 * x, # TODO: generalize!
                 'noise' : lambda x: noiseval**-2 * x,
             }
