@@ -171,9 +171,11 @@ class FitHandler:
             
             # For debugging:
             self.plan = maria.get_plan(scan_pattern="daisy",
-                    scan_options={"radius": 0.25, "speed": 0.5},
+                      scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
                       duration=60, # in seconds
-                      sample_rate=10,
+                    # duration=6, # TODO: change back!
+                      sample_rate=225, # in Hz
+                    #   sample_rate=25, # in Hz # TODO: change back!
                       start_time = "2022-08-10T06:00:00",
                       scan_center=self.scan_center,
                       frame="ra_dec")
@@ -184,15 +186,22 @@ class FitHandler:
             self.instrument.plot()
             
             self.params = {
-                'tod_offset' : (5e-5, 4e-5),
-                'tod_fluct' : (0.01, 0.003),
-                'tod_loglog' : (-2.2, 0.2),
-                'map_offset' : (1e-8, 1e-7),
-                'map_fluct' : (5.5e-5, 1e-6),
-                'map_loglog' : (-3.7, 0.1),
+                # 'tod_offset' : (5e-5, 4e-5),
+                # 'tod_fluct' : (0.01, 0.003),
+                # 'tod_loglog' : (-2.2, 0.2),
+                # 'map_offset' : (1e-8, 1e-7),
+                # 'map_fluct' : (5.5e-5, 1e-6),
+                # 'map_loglog' : (-3.7, 0.1),
+                'tod_offset' : (5e-5, 1e-5),
+                'tod_fluct' : (0.073, 0.003),
+                'tod_loglog' : (-2.8, 0.2),
+                'map_offset' : (5.3e-7, 1e-7),
+                'map_fluct' : (6.1e-5, 1e-6),
+                'map_loglog' : (-3.6, 0.1),
                 # TODO: generalize!
+                'noise' : lambda x: 0.00028**-2 * x, # For 225 Hz
                 # 'noise' : lambda x: 1.9e-4**-2 * x, # For 100 Hz
-                'noise' : lambda x: 1.0e-4**-2 * x, # for 20Hz
+                # 'noise' : lambda x: 1.0e-4**-2 * x, # for 25Hz
             }
             
         elif self.config == 'atlast_debug':
@@ -564,8 +573,8 @@ class FitHandler:
         # Define makslist (only if n_split is not -1)
         if self.n_split != -1:
             # Include tiny offset to avoid double-counting of dets:            
-            min_x, max_x = float(pos[0].min())-1e-12, float(pos[0].max())+1e-12
-            min_y, max_y = float(pos[1].min())-1e-12, float(pos[1].max())+1e-12
+            min_x, max_x = 1.001*np.float64(pos[0].min()), 1.002*np.float64(pos[0].max())
+            min_y, max_y = 1.001*np.float64(pos[1].min()), 1.002*np.float64(pos[1].max())
 
             # Compute the step size for each square
             n_sub_x = 2**(n_split//2)
