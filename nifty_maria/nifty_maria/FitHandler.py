@@ -274,7 +274,7 @@ class FitHandler:
         self.sim_truthmap = maria.Simulation(
             self.instrument, 
             plan=self.plan,
-            site="llano_de_chajnantor", 
+            site="llano_de_chajnantor", # green_bank
             map=self.input_map,
             # noise=False,
             atmosphere="2d",
@@ -1183,8 +1183,6 @@ class FitHandler:
         Returns:
             plt.Figure: The produced figure object.
         
-        Raises:
-            ValueError: If invalid n_sub value is supplied.
         '''
         
         if not self.fit_atmos:
@@ -1202,29 +1200,13 @@ class FitHandler:
         test = Angle(self.instrument.dets.offsets)
         pos = getattr(test, test.units).T
 
-        posmask_ud = jnp.array((pos[1] >= (pos[1].max() + pos[1].min())/2))
-        posmask_lr = jnp.array((pos[0] >= (pos[0].max() + pos[0].min())/2))
-
-        posmask_up = posmask_ud
-        posmask_down = ~posmask_ud
-        posmask_left = posmask_lr
-        posmask_right = ~posmask_lr
-
-        col = np.zeros(posmask_right.shape)
-        if self.n_sub == 4:
-            col[posmask_up & posmask_left] = best_fit_atmos[0, timestep]
-            col[posmask_down & posmask_left] = best_fit_atmos[1, timestep]
-            col[posmask_up & posmask_right] = best_fit_atmos[2, timestep]
-            col[posmask_down & posmask_right] = best_fit_atmos[3, timestep]
-        elif self.n_sub == 2:
-            col[posmask_up] = best_fit_atmos[0, timestep]
-            col[posmask_down] = best_fit_atmos[1, timestep]
-        elif self.n_sub == 1:
-            col[:] = best_fit_atmos[0, timestep]
-        elif self.n_sub == -1:
+        col = np.zeros(pos[0].shape)
+        
+        if self.n_split == -1:
             col = best_fit_atmos[:, timestep]
         else:
-            raise ValueError(f"Value for n_sub {self.n_sub} is not supported!")
+            for i in range(len(self.masklist)):
+                col[self.masklist[i]] = best_fit_atmos[i, timestep]
 
         fig, ax = plt.subplots(1, 3, figsize=(8*3, 6))
 
