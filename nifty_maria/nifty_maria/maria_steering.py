@@ -93,8 +93,8 @@ class MariaSteering:
                       scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
                       duration=60, # in seconds
                     # duration=6, # TODO: change back!
-                      sample_rate=225, # in Hz
-                    #   sample_rate=25, # in Hz # TODO: change back!
+                    #   sample_rate=225, # in Hz
+                      sample_rate=25, # in Hz # TODO: change back!
                       start_time = "2022-08-10T06:00:00",
                       scan_center=self.scan_center,
                       frame="ra_dec")

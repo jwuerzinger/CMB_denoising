@@ -100,9 +100,6 @@ class FitHandler(Plotter, MariaSteering):
         '''
         print("Initialising...")
         super().__init__(fit_map=fit_map, fit_atmos=fit_atmos, config=config, noiselevel=noiselevel)
-        
-        print(self.config)
-        print(self.fit_atmos)
         self.plotsdir = plotsdir
         
         if self.plotsdir is not None: os.system(f"mkdir {self.plotsdir}")
@@ -461,7 +458,8 @@ class FitHandler(Plotter, MariaSteering):
         if self.noiselevel == 0.0: delta = 1e-4
         elif self.noiselevel == 0.1: delta = 1e-10
         elif self.noiselevel == 0.5: delta = 1e-10
-        elif self.noiselevel == 1.0: delta = 1e-4
+        # elif self.noiselevel == 1.0: delta = 1e-4 # TODO: fix!
+        elif self.noiselevel == 1.0: delta = 1e-6
 
         if fit_type == 'map':
             print("Running map fit!")
