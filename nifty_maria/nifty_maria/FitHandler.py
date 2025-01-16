@@ -459,7 +459,9 @@ class FitHandler(Plotter, MariaSteering):
         elif self.noiselevel == 0.1: delta = 1e-10
         elif self.noiselevel == 0.5: delta = 1e-10
         # elif self.noiselevel == 1.0: delta = 1e-4 # TODO: fix!
-        elif self.noiselevel == 1.0: delta = 1e-6
+        elif self.noiselevel == 1.0: 
+            if self.config == 'mustang': delta = 1e-4
+            else: delta = 1e-6
 
         if fit_type == 'map':
             print("Running map fit!")
