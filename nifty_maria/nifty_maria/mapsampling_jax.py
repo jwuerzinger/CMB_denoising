@@ -63,7 +63,7 @@ def construct_beam_filter(fwhm, res, buffer=1):
 
     return F / F.sum()
 
-from maria.units.constants import k_B
+from maria.constants import k_B
 from maria.instrument import beam
 import maria
 
