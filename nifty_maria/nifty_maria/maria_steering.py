@@ -242,11 +242,11 @@ class MariaSteering:
 
         fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
-        im0 = axes[0].imshow(self.output_truthmap.data[0].T, cmap=cmb_cmap)
+        im0 = axes[0].imshow(self.output_truthmap.data[0].T[0,0], cmap=cmb_cmap)
         fig.colorbar(im0)
         axes[0].title.set_text("Noisy image (Mapper output)")
 
-        im1 = axes[1].imshow(self.mapdata_truth[0,0], cmap=cmb_cmap)
+        im1 = axes[1].imshow(self.mapdata_truth[0,0,0], cmap=cmb_cmap)
         fig.colorbar(im1)
         axes[1].title.set_text("True Image")
 
@@ -265,30 +265,32 @@ class MariaSteering:
                     tod_preprocessing={
                             "window": {"name": "hamming"},
                             "remove_modes": {"modes_to_remove": [0]},
-                            "despline": {"knot_spacing": 10},
+                            "remove_spline": {"knot_spacing": 10},
                         },
                         map_postprocessing={
                             "gaussian_filter": {"sigma": 1},
                             "median_filter": {"size": 1},
                         },
+                        units="uK_RJ",
                     )
         elif self.config == 'atlast': # TODO: optimise!
-            mapper = BinMapper(self.scan_center,
+            mapper = BinMapper(
+                    center=self.scan_center,
                     frame="ra_dec",
-                    width=1.,
-                    height=1.,
-                    resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
+                    width=0.25,
+                    height=0.25,
+                    resolution=0.25 / 200,
                     tod_preprocessing={
-                            # "window": {"name": "hamming"},
-                            "window": {"name": "tukey", "kwargs": {"alpha": 0.1}},
-                            "remove_modes": {"modes_to_remove": [0]},
-                            "despline": {"knot_spacing": 5},
-                        },
-                        map_postprocessing={
-                            "gaussian_filter": {"sigma": 1},
-                            "median_filter": {"size": 1},
-                        },
-                    )
+                        "window": {"name": "tukey", "kwargs": {"alpha": 0.1}},
+                        "remove_spline": {"knot_spacing": 10},
+                        "remove_modes": {"modes_to_remove": [0]},
+                    },
+                    map_postprocessing={
+                        "gaussian_filter": {"sigma": 1},
+                        "median_filter": {"size": 1},
+                    },
+                    units="mK_RJ",
+                )
         
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
