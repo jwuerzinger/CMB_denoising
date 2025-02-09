@@ -152,13 +152,22 @@ class Signal_TOD_general(jft.Model):
 
         ## Opt3: Try vectorizing Opt2 (not numerically identical since order is different):
         # Define the operation that replaces the for loop using jax.vmap
-        def apply_mask(mask, res_tod):
-            return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
+        # def apply_mask(mask, res_tod):
+        #     print("mask.shape, res_tod.shape:", mask.shape, res_tod.shape)
+        #     # return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
+        #     return mask[:, None] * res_tod
+        #     # return jax.lax.select(mask[:, None], res_tod, jnp.zeros_like(res_tod))
+        #     # return jax.lax.dot(mask, res_tod) 
 
         # Vectorize the operation over the masklist and res_tods
-        res_tods_fulldet = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, res_tods)
-        # Sum the results across the first axis
-        res_tods_fulldet = jnp.sum(res_tods_fulldet, axis=0)
+        # print("pre-vmap dims: self.masklist, res_tods", self.masklist.shape, res_tods.shape)
+        # res_tods_fulldet = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, res_tods)
+        # # Sum the results across the first axis
+        # res_tods_fulldet = jnp.sum(res_tods_fulldet, axis=0)
+        
+        # sum over masklist and multiply with res_dots using einsum:
+        res_tods_fulldet = jnp.einsum("ai,aj->ij", self.masklist, res_tods)
+        # print("post einsum shape:", res_tods_fulldet.shape)
 
         # Correct tods by offset and slope
         res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
