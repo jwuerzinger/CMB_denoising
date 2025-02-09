@@ -280,11 +280,13 @@ class FitHandler(Plotter, MariaSteering):
             initial_pos = {}
             for k in samples.pos:
                 if k == 'combcf xi':
-                    def apply_mask(mask, res_tod):
-                        return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
+                    # def apply_mask(mask, res_tod):
+                    #     # return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
+                    #     return mask[:, None] * res_tod
                     
-                    initial_pos[k] = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, samples.pos['combcf xi'])
-                    initial_pos[k] = jnp.sum(initial_pos[k], axis=0)
+                    # initial_pos[k] = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, samples.pos['combcf xi'])
+                    # initial_pos[k] = jnp.sum(initial_pos[k], axis=0)
+                    initial_pos[k] = jnp.einsum("ai,aj->ij", self.masklist, samples.pos['combcf xi'])
                 else:
                     initial_pos[k] = samples.pos[k]
                     
@@ -319,7 +321,8 @@ class FitHandler(Plotter, MariaSteering):
             self.masklist = jnp.array(self.masklist)
         
         if self.fit_atmos:
-            self.padding_atmos = 10000
+            self.padding_atmos = self.jax_tods_atmos.shape[1]//2 - self.jax_tods_atmos.shape[1]%2
+            print("Running with atmos padding:", self.padding_atmos)
             self.dims_atmos = ( (self.jax_tods_atmos.shape[1] + self.padding_atmos), )
 
             # correlated field zero mode GP offset and stddev
@@ -491,7 +494,7 @@ class FitHandler(Plotter, MariaSteering):
             draw_linear_kwargs=dict( # sampling parameters
                 cg_name="SL",
                 cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=1000),
-                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=20), #TODO: fine-tune!
+                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 20.0, maxiter=20),
             ),
             nonlinearly_update_kwargs=dict( # map from multivariate gaussian to more compl. distribution (coordinate transformations)
                 minimize_kwargs=dict(
