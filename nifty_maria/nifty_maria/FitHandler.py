@@ -247,83 +247,91 @@ class FitHandler(Plotter, MariaSteering):
             ValueError: If invalid number of splittings n_split or invalid combination fo n_sub and samples is supplied.
         '''
 
-        self.n_split = n_split
-        if self.n_split >= 0:
-            self.n_sub = 2**self.n_split
-        elif self.n_split == -1:
-            self.n_sub = -1
-        else:
-            raise ValueError(f"Invalid splitting {self.n_split} supplied!")
+        # self.n_split = n_split
+        # if self.n_split >= 0:
+        #     self.n_sub = 2**self.n_split
+        # elif self.n_split == -1:
+        #     self.n_sub = -1
+        # else:
+        #     raise ValueError(f"Invalid splitting {self.n_split} supplied!")
         
-        from maria.units import Angle
+        # from maria.units import Angle
 
-        test = Angle(self.instrument.dets.offsets)
-        pos = getattr(test, test.units).T
+        # test = Angle(self.instrument.dets.offsets)
+        # pos = getattr(test, test.units).T
 
-        # TODO: generalise splitting here:
-        if samples is not None and self.n_split >= 1:
-            if self.n_sub != samples.pos['combcf xi'].shape[0]*2:
-                raise ValueError("Only two-fold splitting is supported for now!")
+        # # TODO: generalise splitting here:
+        # if samples is not None and self.n_split >= 1:
+        #     if self.n_sub != samples.pos['combcf xi'].shape[0]*2:
+        #         raise ValueError("Only two-fold splitting is supported for now!")
             
-            initial_pos = {}
-            for k in samples.pos:
-                if k == 'combcf xi':
-                    # broadcast previous fit results to new ones!
-                    initial_pos[k] = jnp.empty( (self.n_sub, samples.pos['combcf xi'].shape[1]) )
-                    for i in range(self.n_sub): # TODO: vectorize
-                        initial_pos[k] = initial_pos[k].at[i].set( samples.pos['combcf xi'][i//2] )
-                else:
-                    initial_pos[k] = samples.pos[k]
+        #     initial_pos = {}
+        #     for k in samples.pos:
+        #         if k == 'combcf xi':
+        #             # broadcast previous fit results to new ones!
+        #             initial_pos[k] = jnp.empty( (self.n_sub, samples.pos['combcf xi'].shape[1]) )
+        #             for i in range(self.n_sub): # TODO: vectorize
+        #                 initial_pos[k] = initial_pos[k].at[i].set( samples.pos['combcf xi'][i//2] )
+        #         else:
+        #             initial_pos[k] = samples.pos[k]
         
-            self.initial_pos = jft.Vector(initial_pos)
-        elif samples is not None and self.n_split == -1:
-            initial_pos = {}
-            for k in samples.pos:
-                if k == 'combcf xi':
-                    # def apply_mask(mask, res_tod):
-                    #     # return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
-                    #     return mask[:, None] * res_tod
+        #     self.initial_pos = jft.Vector(initial_pos)
+        # elif samples is not None and self.n_split == -1:
+        #     initial_pos = {}
+        #     for k in samples.pos:
+        #         if k == 'combcf xi':
+        #             # def apply_mask(mask, res_tod):
+        #             #     # return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
+        #             #     return mask[:, None] * res_tod
                     
-                    # initial_pos[k] = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, samples.pos['combcf xi'])
-                    # initial_pos[k] = jnp.sum(initial_pos[k], axis=0)
-                    initial_pos[k] = jnp.einsum("ai,aj->ij", self.masklist, samples.pos['combcf xi'])
-                else:
-                    initial_pos[k] = samples.pos[k]
+        #             # initial_pos[k] = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, samples.pos['combcf xi'])
+        #             # initial_pos[k] = jnp.sum(initial_pos[k], axis=0)
+        #             initial_pos[k] = jnp.einsum("ai,aj->ij", self.masklist, samples.pos['combcf xi'])
+        #         else:
+        #             initial_pos[k] = samples.pos[k]
                     
-            self.initial_pos = jft.Vector(initial_pos)
+        #     self.initial_pos = jft.Vector(initial_pos)
 
-        else:
-            self.initial_pos = None 
+        # else:
+        #     self.initial_pos = None 
         
-        # Define makslist (only if n_split is not -1)
-        if self.n_split != -1:
-            # Include tiny offset to avoid double-counting of dets:            
-            min_x, max_x = 1.001*np.float64(pos[0].min()), 1.002*np.float64(pos[0].max())
-            min_y, max_y = 1.001*np.float64(pos[1].min()), 1.002*np.float64(pos[1].max())
+        # # Define makslist (only if n_split is not -1)
+        # if self.n_split != -1:
+        #     # Include tiny offset to avoid double-counting of dets:            
+        #     min_x, max_x = 1.001*np.float64(pos[0].min()), 1.002*np.float64(pos[0].max())
+        #     min_y, max_y = 1.001*np.float64(pos[1].min()), 1.002*np.float64(pos[1].max())
 
-            # Compute the step size for each square
-            n_sub_x = 2**(n_split//2)
-            n_sub_y = 2**((n_split+1)//2)
-            x_step = (max_x - min_x) / n_sub_x
-            y_step = (max_y - min_y) / n_sub_y
+        #     # Compute the step size for each square
+        #     n_sub_x = 2**(n_split//2)
+        #     n_sub_y = 2**((n_split+1)//2)
+        #     x_step = (max_x - min_x) / n_sub_x
+        #     y_step = (max_y - min_y) / n_sub_y
 
-            self.masklist = []
-            for y_i in range(0, n_sub_y):
-                yval = min_y + y_i * y_step
-                for x_i in range(0, n_sub_x):
-                    xval = min_x + x_i * x_step
+        #     self.masklist = []
+        #     for y_i in range(0, n_sub_y):
+        #         yval = min_y + y_i * y_step
+        #         for x_i in range(0, n_sub_x):
+        #             xval = min_x + x_i * x_step
 
-                    posmask_x = jnp.array( (pos[0] > xval) & (pos[0] <= xval + x_step) )
-                    posmask_y = jnp.array( (pos[1] > yval) & (pos[1] <= yval + y_step) )
+        #             posmask_x = jnp.array( (pos[0] > xval) & (pos[0] <= xval + x_step) )
+        #             posmask_y = jnp.array( (pos[1] > yval) & (pos[1] <= yval + y_step) )
                     
-                    self.masklist.append( (posmask_x & posmask_y) )
+        #             self.masklist.append( (posmask_x & posmask_y) )
 
-            self.masklist = jnp.array(self.masklist)
+        #     self.masklist = jnp.array(self.masklist)
+        self.n_sub = -1
+        self.initial_pos = None
+        
+        if self.noiselevel == 0.0: noise_cov_inv_tod = lambda x: 1e-8**-2 * x
+        elif self.noiselevel == 0.1: noise_cov_inv_tod = lambda x: 1e-4**-2 * x
+        elif self.noiselevel == 0.5: noise_cov_inv_tod = lambda x: 1e-4**-2 * x
+        elif self.noiselevel == 1.0: noise_cov_inv_tod = self.params['noise']
         
         if self.fit_atmos:
-            self.padding_atmos = self.jax_tods_atmos.shape[1]//2 - self.jax_tods_atmos.shape[1]%2
-            print("Running with atmos padding:", self.padding_atmos)
-            self.dims_atmos = ( (self.jax_tods_atmos.shape[1] + self.padding_atmos), )
+            # self.padding_atmos = self.jax_tods_atmos.shape[1]//2 - self.jax_tods_atmos.shape[1]%2
+            # print("Running with atmos padding:", self.padding_atmos)
+            # self.dims_atmos = ( (self.jax_tods_atmos.shape[1] + self.padding_atmos), )
+            self.dims_atmos = ( self.jax_tods_atmos.shape[1], )
 
             # correlated field zero mode GP offset and stddev
             self.cf_zm_tod = dict(offset_mean=0.0, offset_std=self.params['tod_offset'])
@@ -342,18 +350,63 @@ class FitHandler(Plotter, MariaSteering):
 
             # put together in correlated field model
             # Custom CFM:
-            cfm_tod = CFM("combcf ")
+            # cfm_tod = CFM("combcf ")
+            cfm_tod = jft.CorrelatedFieldMaker("combcf ")
             cfm_tod.set_amplitude_total_offset(**self.cf_zm_tod)
             cfm_tod.add_fluctuations(
                 self.dims_atmos, distances=1.0 / self.dims_atmos[0], **self.cf_fl_tod, prefix="tod ", non_parametric_kind="power"
             )
 
-            if self.n_sub == -1: self.gp_tod = cfm_tod.finalize(self.instrument.n_dets)
-            else: 
-                if self.n_sub > self.instrument.n_dets: raise ValueError(f"ERROR: self.n_sub = {self.n_sub} is not allowed to be larger than self.instrument.n_dets = {self.instrument.n_dets}!")
-                self.gp_tod = cfm_tod.finalize(self.n_sub)
+            # if self.n_sub == -1: self.gp_tod = cfm_tod.finalize(self.instrument.n_dets)
+            # else: 
+            #     if self.n_sub > self.instrument.n_dets: raise ValueError(f"ERROR: self.n_sub = {self.n_sub} is not allowed to be larger than self.instrument.n_dets = {self.instrument.n_dets}!")
+            #     self.gp_tod = cfm_tod.finalize(self.n_sub)
+            self.gp_tod = cfm_tod.finalize()
             
             print("Initialised gp_tod:", self.gp_tod)
+            # def mk_PS(cfm_atmos):
+            def _mk_expanded_amp(amp, sub_dom):  # Avoid late binding
+                def expanded_amp(p):
+                    return amp(p)[sub_dom.harmonic_grid.power_distributor]
+
+                return expanded_amp
+
+            expanded_amplitudes = []
+            namps = cfm_tod.get_normalized_amplitudes()
+            for amp, sgrid in zip(namps, cfm_tod._target_grids):
+                expanded_amplitudes.append(_mk_expanded_amp(amp, sgrid))
+
+            def atmos_amplitude(p):
+                outer = expanded_amplitudes[0](p)
+                for amp in expanded_amplitudes[1:]:
+                    # NOTE, the order is important here and must match with the
+                    # excitations
+                    # TODO, use functions instead and utilize numpy's casting
+                    outer = cfm_tod.azm(p) * jnp.tensordot(outer, amp(p), axes=0)
+                return outer
+
+            # noise_std = 42
+            noise_std = np.sqrt(1./noise_cov_inv_tod(1.))
+            def modified_noise_std():
+                def f(p):
+                    atmos_amp = atmos_amplitude(p)
+                    mod_noise_cov = atmos_amp**2 + noise_std**2 / atmos_amp.size # correct for hartley factor
+                    # print("atmos_amp.size", atmos_amp.size)
+                    # return jnp.sqrt(mod_noise_cov)
+                    return mod_noise_cov**0.5
+
+                subtree = {k: v for k, v in cfm_tod._parameter_tree.items() if k != 'combcf xi'}
+                print("SUBTREE:", subtree)
+                from functools import partial
+                init = {
+                    # k: partial(jft.random_like, primals=v) for k, v in cfm_atmos._parameter_tree.items() if k != 'cfxi' 
+                    k: partial(jft.random_like, primals=v) for k, v in subtree.items()
+                }   
+                mod_noi_std_model = jft.Model(f, domain=subtree, init=init)
+
+                return mod_noi_std_model
+            
+            self.modified_noise_std = modified_noise_std()
         
         if self.fit_map:
             self.padding_map = 10
@@ -382,64 +435,66 @@ class FitHandler(Plotter, MariaSteering):
             self.gp_map = cfm_map.finalize()
         
         # TODO: Signal models could be generalised more..
-        from nifty_maria.SignalModels import Signal_TOD_general, Signal_TOD_alldets, Signal_TOD_alldets_maponly, Signal_TOD_atmos
-        
-        if self.noiselevel == 0.0: noise_cov_inv_tod = lambda x: 1e-8**-2 * x
-        elif self.noiselevel == 0.1: noise_cov_inv_tod = lambda x: 1e-4**-2 * x
-        elif self.noiselevel == 0.5: noise_cov_inv_tod = lambda x: 1e-4**-2 * x
-        elif self.noiselevel == 1.0: noise_cov_inv_tod = self.params['noise']
+        # from nifty_maria.SignalModels import Signal_TOD_general, Signal_TOD_alldets, Signal_TOD_alldets_maponly, Signal_TOD_atmos
         
         print("noise_cov_inv_tod", noise_cov_inv_tod)
         
-        if self.n_sub >= 1:
-            if self.fit_atmos and self.fit_map:
-                print("Initialising: Signal_TOD_general!!")
-                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy)
-            elif self.fit_atmos and not self.fit_map:
-                print("Initialising: Signal_TOD_atmos!!")
-                self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos)
-            else:
-                raise ValueError("Config not supported!")
-        elif self.n_sub == -1:
-            if self.fit_atmos and self.fit_map:
-                print("Initialising: Signal_TOD_alldets")
-                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
-            elif not self.fit_atmos and self.fit_map:
-                print("Initialising: Signal_TOD_alldets_atmosonly")
-                self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy)
-            else:
-                raise ValueError("Config not supported!")
-        else:
-            raise ValueError("Number of subdetectors not supported!")
+        # if self.n_sub >= 1:
+        #     if self.fit_atmos and self.fit_map:
+        #         print("Initialising: Signal_TOD_general!!")
+        #         self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy)
+        #     elif self.fit_atmos and not self.fit_map:
+        #         print("Initialising: Signal_TOD_atmos!!")
+        #         self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos)
+        #     else:
+        #         raise ValueError("Config not supported!")
+        # elif self.n_sub == -1:
+        #     if self.fit_atmos and self.fit_map:
+        #         print("Initialising: Signal_TOD_alldets")
+        #         self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
+        #     elif not self.fit_atmos and self.fit_map:
+        #         print("Initialising: Signal_TOD_alldets_atmosonly")
+        #         self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy)
+        #     else:
+        #         raise ValueError("Config not supported!")
+        # else:
+        #     raise ValueError("Number of subdetectors not supported!")
 
-        self.lh = jft.Gaussian( self.noised_jax_tod, noise_cov_inv_tod).amend(self.signal_response_tod)
+        # self.lh = jft.Gaussian( self.noised_jax_tod, noise_cov_inv_tod).amend(self.signal_response_tod)
+        
+        from nifty_maria.SignalModels import SignalModel_Hartley
+        
+        self.signal_response_tod = SignalModel_Hartley(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy, self.modified_noise_std)
+        
+        from nifty_maria.modified_CFM import inv_hartley
+        self.lh = jft.VariableCovarianceGaussian(inv_hartley(self.noised_jax_tod, axes=[1])).amend(self.signal_response_tod)
         
         print("Initialised Likelihood:", self.lh)
         
         return 
     
-    def draw_prior_sample(self) -> jax.Array:
-        '''
-        Draws sample from prior model and makes a plot of sample drawn. Returns array with corresponding signal response. 
+    # def draw_prior_sample(self) -> jax.Array:
+    #     '''
+    #     Draws sample from prior model and makes a plot of sample drawn. Returns array with corresponding signal response. 
         
-        Returns:
-            jax.Array: A jax array containing signal response.
-        '''
-        self.key, sub = jax.random.split(self.key)
-        xi = jft.random_like(sub, self.signal_response_tod.domain)
-        res = self.signal_response_tod(xi)
-        # n = self.instrument.n_dets
-        n = self.noised_jax_tod.shape[0]
+    #     Returns:
+    #         jax.Array: A jax array containing signal response.
+    #     '''
+    #     self.key, sub = jax.random.split(self.key)
+    #     xi = jft.random_like(sub, self.signal_response_tod.domain)
+    #     res = self.signal_response_tod(xi)
+    #     # n = self.instrument.n_dets
+    #     n = self.noised_jax_tod.shape[0]
 
-        fig, axes = plt.subplots(1, 1, figsize=(16, 4))
+    #     fig, axes = plt.subplots(1, 1, figsize=(16, 4))
 
-        for i in range(0, n, n//10 if n//10 != 0 else 1):
-            axes.plot( np.arange(0, res.shape[1]), res[i], label=i)
+    #     for i in range(0, n, n//10 if n//10 != 0 else 1):
+    #         axes.plot( np.arange(0, res.shape[1]), res[i], label=i)
 
-        axes.title.set_text(f'all')
-        axes.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+    #     axes.title.set_text(f'all')
+    #     axes.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
         
-        return res
+    #     return res
     
     def perform_fit(self, n_it: int = 1, fit_type: str = 'full', printevery: int = 2) -> tuple[jft.evi.Samples, OptimizeVIState]:
         '''

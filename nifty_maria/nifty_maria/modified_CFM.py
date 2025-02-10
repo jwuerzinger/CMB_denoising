@@ -10,6 +10,28 @@ from nifty8.re.correlated_field import Model, RegularCartesianGrid, hartley, HEA
 
 key = jax.random.PRNGKey(42)
 
+_config = jft.config._config
+import operator
+
+def hartley(p, axes=None):
+    from jax.numpy import fft
+
+    tmp = fft.fftn(p, axes=axes)
+    c = _config.get("hartley_convention")
+    add_or_sub = operator.add if c == "non_canonical_hartley" else operator.sub
+    return add_or_sub(tmp.real, tmp.imag)
+
+def inv_hartley(p, axes=None):
+    from jax.numpy import fft
+    tmp = fft.fftn(p, axes=axes)  # Forward transform (not IFFT!)
+    c = _config.get("hartley_convention")
+    add_or_sub = operator.add if c == "non_canonical_hartley" else operator.sub
+    # print("THIS:", p.shape, p.size, p.shape[axes[0]])
+    
+    # return add_or_sub(tmp.real, tmp.imag) / p.size  # Normalize
+    if len(axes) != 1: return ValueError("axes can only be size 1!")
+    return add_or_sub(tmp.real, tmp.imag) / p.shape[axes[0]]  # Normalize
+
 class CFM(jft.CorrelatedFieldMaker):
     def __init__(self, prefix):
         super().__init__(prefix)

@@ -178,3 +178,32 @@ class Signal_TOD_general(jft.Model):
         modified_res_map = res_map + res_tods_offset
 
         return modified_res_map
+    
+from nifty_maria.modified_CFM import inv_hartley
+class SignalModel_Hartley(jft.Model):
+    def __init__(self, gp_map, dims_map, padding_map, sim_truthmap, dx, dy, modified_noise_std):
+        self.gp_map = gp_map
+        self.dims_map = dims_map
+        self.padding_map = padding_map
+        self.sim_truthmap = sim_truthmap
+        self.dx = dx 
+        self.dy = dy
+        
+        self.modified_noise_std = modified_noise_std
+        super().__init__(init=self.gp_map.init | self.modified_noise_std.init)
+
+    def __call__(self, x):
+        
+        gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+        res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+        
+        # TODO: inv_hartley(res_map, axis=?) # transform only over time-direction - DONE!
+        # TODO: correct inv_hartley to not account for entire size of array, but only over time axis - DONE!
+        # TODO: Feed Inv hartley transformed data into this model! - DONE!
+        # TODO: broadcast self.modified_noise_std(x) to n detectors - DONE!
+        # TODO: intitialise LH as VariableCovarianceGaussian(inv_harley(data)).amend(Input_Model) - DONE?!
+        
+        # print("HERE:", inv_hartley(res_map, axes=[1]).shape, res_map.shape)
+        # print("HERE:", self.modified_noise_std(x).shape, jnp.broadcast_to(self.modified_noise_std(x), res_map.shape).shape)
+        
+        return inv_hartley(res_map, axes=[1]), jnp.broadcast_to(self.modified_noise_std(x), res_map.shape)

@@ -9,6 +9,7 @@ import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
 
 from nifty_maria.mapsampling_jax import sample_maps
+from nifty_maria.modified_CFM import hartley
 
 class Plotter:
     def callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
@@ -20,6 +21,9 @@ class Plotter:
             opt_state (jft.optimize_kl.OptimizeVIState): Optimisation state to plot.
         '''
         cmb_cmap = plt.get_cmap('cmb')
+        # print("samples.pos:", samples.pos)
+        
+        self.printfitresults(samples)
         
         iter = opt_state[0]
         # printevery = 1 # 3
@@ -28,54 +32,60 @@ class Plotter:
         if iter % self.printevery != 0: return
 
         fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
-        mean, std = jft.mean_and_std(tuple(self.signal_response_tod(s) for s in samples))
+        signal = tuple(hartley(self.signal_response_tod(s)[0], axes=[1]) for s in samples)
+        # mean, std = jft.mean_and_std(tuple(self.signal_response_tod(s) for s in samples))
+        mean, std = jft.mean_and_std(signal)
 
         for i in range(0, n, n//10 if n//10 != 0 else 1):
             axes_tods[0].plot(np.arange(0, mean.shape[1]), mean[i], label=f"tod{i}")
-            axes_tods[0].plot(self.denoised_jax_tod[i], label=f"truth{i}")
-            axes_tods[1].plot(np.arange(0, mean.shape[1]), mean[i] - self.denoised_jax_tod[i], label=f"tod{i}")
+            # axes_tods[0].plot(self.denoised_jax_tod[i], label=f"truth{i}")
+            # axes_tods[1].plot(np.arange(0, mean.shape[1]), mean[i] - self.denoised_jax_tod[i], label=f"tod{i}")
+            axes_tods[0].plot(self.jax_tods_map[i], label=f"truth{i}")
+            axes_tods[1].plot(np.arange(0, mean.shape[1]), mean[i] - self.jax_tods_map[i], label=f"tod{i}")
 
         fig_tods.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
-        axes_tods[0].title.set_text('total mean pred. & truth (no noise)')
+        # axes_tods[0].title.set_text('total mean pred. & truth (no noise)')
+        axes_tods[0].title.set_text('map mean pred. & truth (no noise)')
         axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-        axes_tods[1].title.set_text('total mean pred. - truth (no noise)')
+        # axes_tods[1].title.set_text('total mean pred. - truth (no noise)')
+        axes_tods[1].title.set_text('map mean pred. - truth (no noise)')
         # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
         if self.plotsdir is None: plt.show()
         else:
             plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_TODagreement.png")
             plt.close()
 
-        if self.fit_atmos:
-            fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
+        # if self.fit_atmos:
+        #     fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
 
-            preds = []
-            for x in samples:
-                x_tod = {k: x[k] for k in x if 'comb' in k}
-                res_tods = self.gp_tod(x_tod)
+        #     preds = []
+        #     for x in samples:
+        #         x_tod = {k: x[k] for k in x if 'comb' in k}
+        #         res_tods = self.gp_tod(x_tod)
 
-                # From TOD-only fit:
-                # preds += [res_tods[:, padding_atmos//2:-padding_atmos//2] * slopes_truth[:, None] + offset_tod_truth[:, None], ]
-                preds += [res_tods[:, self.padding_atmos//2:-self.padding_atmos//2], ]
+        #         # From TOD-only fit:
+        #         # preds += [res_tods[:, padding_atmos//2:-padding_atmos//2] * slopes_truth[:, None] + offset_tod_truth[:, None], ]
+        #         preds += [res_tods[:, self.padding_atmos//2:-self.padding_atmos//2], ]
 
-            mean_atmos, std = jft.mean_and_std(tuple(preds))
+        #     mean_atmos, std = jft.mean_and_std(tuple(preds))
 
-            for i in range(0, n, n//10 if n//10 != 0 else 1):
-                axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i], label=f"tod{i}")
-                # axes_tods[0].plot(denoised_jax_tod[i], label=f"truth{i}")
-                axes_tods[0].plot(self.atmos_tod_simplified[i], label=f"truth{i}")
-                axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i] - self.atmos_tod_simplified[i], label=f"tod{i}")
-                # axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]), mean[i] - mean_atmos[i], label=f"tod{i}")
+        #     for i in range(0, n, n//10 if n//10 != 0 else 1):
+        #         axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i], label=f"tod{i}")
+        #         # axes_tods[0].plot(denoised_jax_tod[i], label=f"truth{i}")
+        #         axes_tods[0].plot(self.atmos_tod_simplified[i], label=f"truth{i}")
+        #         axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i] - self.atmos_tod_simplified[i], label=f"tod{i}")
+        #         # axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]), mean[i] - mean_atmos[i], label=f"tod{i}")
 
-            fig_tods.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
-            axes_tods[0].title.set_text('mean atmos pred. & simplified truth (no noise)')
-            axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-            axes_tods[1].title.set_text('mean atmos pred. - simplified truth (no noise)')
-            # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+        #     fig_tods.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
+        #     axes_tods[0].title.set_text('mean atmos pred. & simplified truth (no noise)')
+        #     axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+        #     axes_tods[1].title.set_text('mean atmos pred. - simplified truth (no noise)')
+        #     # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
             
-            if self.plotsdir is None: plt.show()
-            else:
-                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_simplified_atmos.png")
-                plt.close()
+        #     if self.plotsdir is None: plt.show()
+        #     else:
+        #         plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_simplified_atmos.png")
+        #         plt.close()
 
         if self.fit_map:
             fig_map, axes_map = plt.subplots(1, 3, figsize=(16, 6))

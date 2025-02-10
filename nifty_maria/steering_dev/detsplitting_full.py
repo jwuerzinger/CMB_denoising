@@ -1,7 +1,8 @@
 from nifty_maria.FitHandler import FitHandler
 
 # fit = FitHandler(config='mustang', fit_atmos=True, fit_map=True, plotsdir='mustang_fullrun_13-01-25')
-fit = FitHandler(config='atlast', fit_atmos=True, fit_map=True, plotsdir='atlast_fullrun_07-02-25')
+# fit = FitHandler(config='atlast', fit_atmos=True, fit_map=True, plotsdir='atlast_fullrun_07-02-25')
+fit = FitHandler(config='mustang', fit_atmos=True, fit_map=True, plotsdir='mustang_hartley')
 
 fit.simulate()
 
@@ -36,5 +37,5 @@ for i in n_splits:
     # Show reco comparison before expanding to full det:
     fit.plotrecos(samples)
 
-    # fit.make_atmosphere_det_gif(samples, figname=f"mustang_{fit.n_sub}_atmosphere_comp.gif", tmax=2500)
-    fit.make_atmosphere_det_gif(samples, figname=f"atlast_{fit.n_sub}_atmosphere_comp.gif", tmax=1000)
+    fit.make_atmosphere_det_gif(samples, figname=f"mustang_{fit.n_sub}_atmosphere_comp.gif", tmax=2500)
+    # fit.make_atmosphere_det_gif(samples, figname=f"atlast_{fit.n_sub}_atmosphere_comp.gif", tmax=1000)
