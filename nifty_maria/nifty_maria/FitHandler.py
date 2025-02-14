@@ -475,13 +475,13 @@ class FitHandler(Plotter, MariaSteering):
         self.key, sub = jax.random.split(self.key)
         xi = jft.random_like(sub, self.gp_tod.domain)
         res = self.gp_tod(xi)
-        # self.noised_jax_tod += res
+        self.noised_jax_tod += res
         
         # Check for atmosphere: add 0th component of simplified atmos:
         # -> Does NOT work! Same result as with full atmosphere
         print("HERE:", self.atmos_tod_simplified.shape, self.noised_jax_tod.shape, self.atmos_tod_simplified[0].shape)
         print(type(self.noised_jax_tod), type(self.atmos_tod_simplified))
-        self.noised_jax_tod += np.float64(self.atmos_tod_simplified[0])
+        # self.noised_jax_tod += np.float64(self.atmos_tod_simplified[0])
         
         plt.plot(res, label='prior sample')
         plt.plot(self.atmos_tod_simplified[0], label='simplified atmos det. 0')

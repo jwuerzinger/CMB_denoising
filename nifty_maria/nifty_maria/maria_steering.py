@@ -57,10 +57,11 @@ class MariaSteering:
             noiseval = 2.5e-4 if self.noiselevel == 1.0 else 1e-7
             print(f"Running with noise value: {noiseval}")
             self.params = { 
-                'tod_offset' : (1e-5, 0.99e-5),
-                'tod_fluct' : (0.0015, 0.0001),
-                # 'tod_loglog' : (-2.45, 0.1),
-                'tod_loglog' : (-2.45, 1e-2), # TODO: change back?!
+                # 'tod_offset' : (1e-5, 0.99e-5),
+                'tod_offset' : (5e-5, 0.99e-5),
+                # 'tod_fluct' : (0.0015, 0.0001),
+                'tod_fluct' : (0.005, 0.0001),
+                'tod_loglog' : (-2.45, 0.1),
                 'map_offset' : (1e-8, 1e-7),
                 'map_fluct' : (5.6e-5, 1e-6),
                 'map_loglog' : (-2.5, 0.1),
