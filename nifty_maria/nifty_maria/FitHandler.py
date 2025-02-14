@@ -156,6 +156,7 @@ class FitHandler(Plotter, MariaSteering):
 
         # Map + atmos
         self.noised_jax_tod = np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)
+        # disabling atmos here for now: TODO: re-add!
         if self.fit_atmos:
             self.noised_jax_tod += np.float64(self.jax_tods_atmos)
         if self.fit_map:
@@ -465,6 +466,28 @@ class FitHandler(Plotter, MariaSteering):
         from nifty_maria.SignalModels import SignalModel_Hartley
         
         self.signal_response_tod = SignalModel_Hartley(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy, self.modified_noise_std)
+        
+        # Remove atmos for testing:
+        self.noised_jax_tod -= np.float64(self.jax_tods_atmos)
+        
+        # Temp check for self-consistency: add prior atmosphere sample instead of real atmosphere for sel-consistency check:
+        # -> Works but reco is slightly fuzzy!
+        self.key, sub = jax.random.split(self.key)
+        xi = jft.random_like(sub, self.gp_tod.domain)
+        res = self.gp_tod(xi)
+        # self.noised_jax_tod += res
+        
+        # Check for atmosphere: add 0th component of simplified atmos:
+        # -> Does NOT work! Same result as with full atmosphere
+        print("HERE:", self.atmos_tod_simplified.shape, self.noised_jax_tod.shape, self.atmos_tod_simplified[0].shape)
+        print(type(self.noised_jax_tod), type(self.atmos_tod_simplified))
+        self.noised_jax_tod += np.float64(self.atmos_tod_simplified[0])
+        
+        plt.plot(res, label='prior sample')
+        plt.plot(self.atmos_tod_simplified[0], label='simplified atmos det. 0')
+        # plt.plot(self.jax_tods_atmos[0], label='full atmosphere det. 0')
+        plt.legend()
+        plt.show()
         
         from nifty_maria.modified_CFM import inv_hartley
         self.lh = jft.VariableCovarianceGaussian(inv_hartley(self.noised_jax_tod, axes=[1])).amend(self.signal_response_tod)

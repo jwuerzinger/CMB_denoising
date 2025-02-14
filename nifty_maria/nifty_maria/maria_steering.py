@@ -59,7 +59,8 @@ class MariaSteering:
             self.params = { 
                 'tod_offset' : (1e-5, 0.99e-5),
                 'tod_fluct' : (0.0015, 0.0001),
-                'tod_loglog' : (-2.45, 0.1),
+                # 'tod_loglog' : (-2.45, 0.1),
+                'tod_loglog' : (-2.45, 1e-2), # TODO: change back?!
                 'map_offset' : (1e-8, 1e-7),
                 'map_fluct' : (5.6e-5, 1e-6),
                 'map_loglog' : (-2.5, 0.1),

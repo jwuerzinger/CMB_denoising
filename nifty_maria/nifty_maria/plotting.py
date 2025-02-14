@@ -33,8 +33,8 @@ class Plotter:
 
         fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
         signal = tuple(hartley(self.signal_response_tod(s)[0], axes=[1]) for s in samples)
-        # mean, std = jft.mean_and_std(tuple(self.signal_response_tod(s) for s in samples))
         mean, std = jft.mean_and_std(signal)
+        # mean, std = jft.mean_and_std(tuple(self.signal_response_tod(s) for s in samples))
 
         for i in range(0, n, n//10 if n//10 != 0 else 1):
             axes_tods[0].plot(np.arange(0, mean.shape[1]), mean[i], label=f"tod{i}")
