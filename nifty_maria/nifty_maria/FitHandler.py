@@ -391,7 +391,7 @@ class FitHandler(Plotter, MariaSteering):
             def modified_noise_std():
                 def f(p):
                     atmos_amp = atmos_amplitude(p)
-                    mod_noise_cov = atmos_amp**2 + noise_std**2 / atmos_amp.size # correct for hartley factor
+                    mod_noise_cov = atmos_amp**2 / atmos_amp.size**2 + noise_std**2 / atmos_amp.size # correct for hartley factor
                     # print("atmos_amp.size", atmos_amp.size)
                     # return jnp.sqrt(mod_noise_cov)
                     return mod_noise_cov**0.5
