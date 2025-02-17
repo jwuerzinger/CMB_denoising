@@ -405,7 +405,7 @@ class FitHandler(Plotter, MariaSteering):
                 print("Initialising: Signal_TOD_alldets")
                 self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
             elif not self.fit_atmos and self.fit_map:
-                print("Initialising: Signal_TOD_alldets_atmosonly")
+                print("Initialising: Signal_TOD_alldets_maponly")
                 self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy)
             else:
                 raise ValueError("Config not supported!")
