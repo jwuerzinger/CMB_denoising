@@ -1,7 +1,7 @@
 from nifty_maria.FitHandler import FitHandler
 
 # fit = FitHandler(config='mustang', fit_atmos=True, fit_map=True, plotsdir='mustang_fullrun_13-01-25')
-fit = FitHandler(config='atlast', fit_atmos=True, fit_map=True, plotsdir='atlast_fullrun_10-02-25')
+fit = FitHandler(config='atlast', fit_atmos=True, fit_map=True, plotsdir='atlast_fullrate_2samples_17-02-25')
 
 fit.simulate()
 

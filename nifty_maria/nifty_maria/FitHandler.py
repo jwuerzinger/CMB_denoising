@@ -464,7 +464,8 @@ class FitHandler(Plotter, MariaSteering):
         # elif self.noiselevel == 1.0: delta = 1e-4 # TODO: fix!
         elif self.noiselevel == 1.0: 
             if self.config == 'mustang': delta = 1e-4
-            else: delta = 1e-6
+            else: delta = 1e-8
+            print(f"Running with delta: {delta}")
 
         if fit_type == 'map':
             print("Running map fit!")
@@ -472,7 +473,8 @@ class FitHandler(Plotter, MariaSteering):
             sample_mode = 'nonlinear_resample'
         elif fit_type == 'full':
             print("Running full fit!")
-            n_samples = 4
+            # n_samples = 4
+            n_samples = 2
             # sample_mode = lambda x: "nonlinear_resample" if x >= 1 else "linear_resample"
             sample_mode = "nonlinear_resample"
         else:
