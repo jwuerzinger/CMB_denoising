@@ -1,8 +1,8 @@
 sim.fits
 gifs/*.gif
-nifty_maria/steering_dev/*
-!nifty_maria/steering_dev/*.py
-!nifty_maria/steering_dev/*.ipynp
+nifty_maria/steering/*
+!nifty_maria/steering/*.py
+!nifty_maria/steering/*.ipynp
 nifty_maria/*.npy
 nifty_maria/nifty_maria/__pycache__/
 nifty_maria/nifty_maria.egg-info/
