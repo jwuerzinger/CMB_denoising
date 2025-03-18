@@ -1,7 +1,6 @@
 '''
 Module to collect maria steering configs and code.
 '''
-
 import numpy as np
 import maria
 import matplotlib.pyplot as plt
@@ -9,6 +8,7 @@ import matplotlib.pyplot as plt
 import nifty_maria.mapsampling_jax
 
 class MariaSteering:
+    '''Subclass for steering maria code.'''
     def __init__(self, fit_map: bool, fit_atmos: bool, config: str, noiselevel: int) -> None:
         '''
         Initialize the steering handler.

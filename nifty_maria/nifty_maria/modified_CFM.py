@@ -1,9 +1,10 @@
+'''
+Module containing modified Correlated Field Model for handling atmosphere TODs.
+'''
 import jax
 
 import jax.numpy as jnp
-import numpy as np
 import nifty8.re as jft
-import matplotlib.pyplot as plt
 
 from functools import partial
 from nifty8.re.correlated_field import Model, RegularCartesianGrid, hartley, HEALPixGrid, get_sht, ShapeWithDtype, random_like
@@ -11,6 +12,7 @@ from nifty8.re.correlated_field import Model, RegularCartesianGrid, hartley, HEA
 key = jax.random.PRNGKey(42)
 
 class CFM(jft.CorrelatedFieldMaker):
+    '''Custom Correlated Field Maker class for handling atmosphere TODs. Models n_fields TODs with different xi realisations, shared powerspectra and no correlation along TOD dimension'''
     def __init__(self, prefix):
         super().__init__(prefix)
 

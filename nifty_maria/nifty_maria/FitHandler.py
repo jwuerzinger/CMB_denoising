@@ -10,9 +10,6 @@ os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
 # Disable default memory preallocation strategy for more control
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
-# Use platform-specific memory allocation for CUDA
-# # os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
-
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -285,12 +282,6 @@ class FitHandler(Plotter, MariaSteering):
             initial_pos = {}
             for k in samples.pos:
                 if k == 'combcf xi':
-                    # def apply_mask(mask, res_tod):
-                    #     # return jnp.where(mask[:, None], res_tod, jnp.zeros_like(res_tod))
-                    #     return mask[:, None] * res_tod
-                    
-                    # initial_pos[k] = jax.vmap(apply_mask, in_axes=(0, 0))(self.masklist, samples.pos['combcf xi'])
-                    # initial_pos[k] = jnp.sum(initial_pos[k], axis=0)
                     initial_pos[k] = jnp.einsum("ai,aj->ij", self.masklist, samples.pos['combcf xi'])
                 else:
                     initial_pos[k] = samples.pos[k]
@@ -335,20 +326,15 @@ class FitHandler(Plotter, MariaSteering):
             # correlated field zero mode GP offset and stddev
             self.cf_zm_tod = dict(offset_mean=0.0, offset_std=self.params['tod_offset'])
 
-            # correlated field fluctuations (mostly don't need tuning)
-            # fluctuations: y-offset in power spectrum in fourier space (zero mode)
-            # loglogavgslope: power-spectrum slope in log-log space in frequency domain (Fourier space) Jakob: -4 -- -2
-            # flexibility=(1.5e0, 5e-1), # deviation from simple power-law
-            # asperity=(5e-1, 5e-2), # small scale features in power-law
+            # correlated field fluctuations
             self.cf_fl_tod = dict(
-                fluctuations=self.params['tod_fluct'],
-                loglogavgslope=self.params['tod_loglog'],
-                flexibility=None,
-                asperity=None,
+                fluctuations=self.params['tod_fluct'], # y-offset in power spectrum in fourier space (zero mode)
+                loglogavgslope=self.params['tod_loglog'], # power-spectrum slope in log-log space in frequency domain (Fourier space)
+                flexibility=None, # deviation from simple power-law
+                asperity=None, # small scale features in power-law
             )
 
-            # put together in correlated field model
-            # Custom CFM:
+            # put together in custom correlated field model
             cfm_tod = CFM("combcf ")
             cfm_tod.set_amplitude_total_offset(**self.cf_zm_tod)
             cfm_tod.add_fluctuations(
@@ -364,20 +350,19 @@ class FitHandler(Plotter, MariaSteering):
         
         if self.fit_map:
             self.padding_map = 10
-            # self.padding_map = 0
             if self.config == 'atlast':
                 self.dims_map = (1024 + self.padding_map, 1024 + self.padding_map)
             else:
                 self.dims_map = (1000 + self.padding_map, 1000 + self.padding_map)
 
             # Map model
-            self.cf_zm_map = dict(offset_mean=self.mapdata_truth.mean(), offset_std=self.params['map_offset'])
+            self.cf_zm_map = dict(offset_mean=self.mapdata_truth.mean(), offset_std=self.params['map_offset']) # TODO: fix offset in map to 0
             # correlated field fluctuations (mostly don't need tuning)
             self.cf_fl_map = dict(
                 fluctuations=self.params['map_fluct'], # fluctuations: y-offset in power spectrum in fourier space (zero mode)
-                loglogavgslope=self.params['map_loglog'],
-                flexibility=None,
-                asperity=None,
+                loglogavgslope=self.params['map_loglog'], # power-spectrum slope in log-log space in frequency domain (Fourier space)
+                flexibility=None, # deviation from simple power-law
+                asperity=None, # small scale features in power-law
             )
 
             # put together in correlated field model
@@ -388,7 +373,7 @@ class FitHandler(Plotter, MariaSteering):
             )
             self.gp_map = cfm_map.finalize()
         
-        # TODO: Signal models could be generalised more..
+        # Import signal models. Response depends on if map/atmosphere are being fitted and number of subarrays
         from nifty_maria.SignalModels import Signal_TOD_general, Signal_TOD_alldets, Signal_TOD_alldets_maponly, Signal_TOD_atmos
         
         if self.noiselevel == 0.0: noise_cov_inv_tod = lambda x: 1e-8**-2 * x
@@ -400,10 +385,10 @@ class FitHandler(Plotter, MariaSteering):
         
         if self.n_sub >= 1:
             if self.fit_atmos and self.fit_map:
-                print("Initialising: Signal_TOD_general!!")
+                print("Initialising: Signal_TOD_general")
                 self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy, self.downsampling_factor)
             elif self.fit_atmos and not self.fit_map:
-                print("Initialising: Signal_TOD_atmos!!")
+                print("Initialising: Signal_TOD_atmos")
                 self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, self.downsampling_factor)
             else:
                 raise ValueError("Config not supported!")
@@ -435,7 +420,6 @@ class FitHandler(Plotter, MariaSteering):
         self.key, sub = jax.random.split(self.key)
         xi = jft.random_like(sub, self.signal_response_tod.domain)
         res = self.signal_response_tod(xi)
-        # n = self.instrument.n_dets
         n = self.noised_jax_tod.shape[0]
 
         fig, axes = plt.subplots(1, 1, figsize=(16, 4))
@@ -468,7 +452,6 @@ class FitHandler(Plotter, MariaSteering):
         if self.noiselevel == 0.0: delta = 1e-4
         elif self.noiselevel == 0.1: delta = 1e-10
         elif self.noiselevel == 0.5: delta = 1e-10
-        # elif self.noiselevel == 1.0: delta = 1e-4 # TODO: fix!
         elif self.noiselevel == 1.0: 
             if self.config == 'mustang': delta = 1e-4
             else: delta = 1e-8
@@ -480,9 +463,7 @@ class FitHandler(Plotter, MariaSteering):
             sample_mode = 'nonlinear_resample'
         elif fit_type == 'full':
             print("Running full fit!")
-            # n_samples = 4
             n_samples = 2
-            # sample_mode = lambda x: "nonlinear_resample" if x >= 1 else "linear_resample"
             sample_mode = "nonlinear_resample"
         else:
             raise ValueError(f"fit_type {fit_type} not supported!")
@@ -495,29 +476,25 @@ class FitHandler(Plotter, MariaSteering):
 
         samples, state = jft.optimize_kl(
             self.lh, # likelihood
-            # 0.1*jft.Vector(self.lh.init(k_i)), # initial position in model space (initialisation)
-            self.initial_pos,
+            self.initial_pos, # initial position in model space (initialisation)
             n_total_iterations=n_it, # no of optimisation steps (global)
             n_samples=n_samples, # draw samples
             key=k_o, # random jax init
             draw_linear_kwargs=dict( # sampling parameters
                 cg_name="SL",
-                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=1000),
-                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=2000),
+                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=2000), # Before 1000 for mustang; TODO: softcode
             ),
             nonlinearly_update_kwargs=dict( # map from multivariate gaussian to more compl. distribution (coordinate transformations)
                 minimize_kwargs=dict(
                     name="SN",
                     xtol=delta,
                     cg_kwargs=dict(name=None),
-                    # maxiter=5,
-                    maxiter=20,
+                    maxiter=20, # Before 5 for mustang; TODO: softcode
                 )
             ),
             kl_kwargs=dict( # shift transformed multivar gauss to best match true posterior
                 minimize_kwargs=dict(
-                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=200 # map
-                    # name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=20 # map
+                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=200 # Before 20 for mustang; TODO: softcode
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),

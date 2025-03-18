@@ -11,6 +11,7 @@ from nifty8.re.optimize_kl import OptimizeVIState
 from nifty_maria.mapsampling_jax import sample_maps
 
 class Plotter:
+    '''Subclass containing plotting functionalities.'''
     def callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
         '''
         Callback function to be used for plotting fit status during optimisation.
@@ -22,8 +23,6 @@ class Plotter:
         cmb_cmap = plt.get_cmap('cmb')
         
         iter = opt_state[0]
-        # printevery = 1 # 3
-        # n = self.instrument.n_dets
         n = self.noised_jax_tod.shape[0]
         if iter % self.printevery != 0: return
 
@@ -39,7 +38,6 @@ class Plotter:
         axes_tods[0].title.set_text('total mean pred. & truth (no noise)')
         axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
         axes_tods[1].title.set_text('total mean pred. - truth (no noise)')
-        # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
         if self.plotsdir is None: plt.show()
         else:
             plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_TODagreement.png")
@@ -53,16 +51,12 @@ class Plotter:
                 x_tod = {k: x[k] for k in x if 'comb' in k}
                 res_tods = self.gp_tod(x_tod)
 
-                # From TOD-only fit:
-                # preds += [res_tods[:, padding_atmos//2:-padding_atmos//2] * slopes_truth[:, None] + offset_tod_truth[:, None], ]
                 preds += [res_tods[:, self.padding_atmos//2:-self.padding_atmos//2], ]
 
             mean_atmos, std = jft.mean_and_std(tuple(preds))
 
             for i in range(0, n, n//10 if n//10 != 0 else 1):
-                # axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i], label=f"tod{i}")
                 axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor), label=f"tod{i}")
-                # axes_tods[0].plot(denoised_jax_tod[i], label=f"truth{i}")
                 axes_tods[0].plot(self.atmos_tod_simplified[i], label=f"truth{i}")
                 axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor) - self.atmos_tod_simplified[i], label=f"tod{i}")
 
@@ -70,7 +64,6 @@ class Plotter:
             axes_tods[0].title.set_text('mean atmos pred. & simplified truth (no noise)')
             axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
             axes_tods[1].title.set_text('mean atmos pred. - simplified truth (no noise)')
-            # axes_tods[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
             
             if self.plotsdir is None: plt.show()
             else:
@@ -116,7 +109,6 @@ class Plotter:
         cmb_cmap = plt.get_cmap('cmb')
         
         res = self.signal_response_tod(samples.pos)
-        # n = self.instrument.n_dets
         n = self.noised_jax_tod.shape[0]
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
@@ -154,8 +146,6 @@ class Plotter:
 
             im1 = axes[1].imshow( sig_map - self.mapdata_truth[0, 0], cmap=cmb_cmap)
             axes[1].title.set_text('MAP - map truth')
-            # im1 = axes[1].imshow( (sig_map - mapdata_truth) )
-            # axes[1].title.set_text('diff prediction - map truth')
             fig.colorbar(im1)
 
             fig.suptitle(f"n_sub = {self.n_sub}")
@@ -175,8 +165,6 @@ class Plotter:
             samples (jft.evi.Samples): Samples to plot power spectrum for.
         '''
         import scipy as sp
-
-        # mean, std = jft.mean_and_std(tuple(signal_response_tod(s) for s in samples))
         from itertools import cycle
 
         colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
@@ -201,9 +189,7 @@ class Plotter:
             
             x_tod = {k: samples.pos[k] for k in samples.pos if 'comb' in k}
             res_tods = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
-            # print("HAH:", res_tods.shape)
             res_tods = jnp.repeat(res_tods, self.downsampling_factor)[None, :]
-            # print("HAH2:", res_tods.shape)
             
             components += [res_tods, self.tod_truthmap.get_field('atmosphere')]
             labels += ['pred. atmos', 'true atmos']
@@ -213,8 +199,6 @@ class Plotter:
         for i in range(len(components)):
             
             f, ps = sp.signal.periodogram(components[i], fs=self.tod_truthmap.fs, window="tukey")
-
-            # print("HERE:", f.shape, ps.shape)
 
             f_bins = np.geomspace(f[1], f[-1], 256)
             f_mids = np.sqrt(f_bins[1:] * f_bins[:-1])
@@ -263,7 +247,7 @@ class Plotter:
             sig_map = self.gp_map(samples.pos)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] # when splitting up in different field models
         else:
             sig_map = self.gp_map(samples.pos)
-        # sig_map = self.gp_map(samples.pos)
+
         # mincol = -0.0012
         # maxcol = 0.
         mincol = None
@@ -334,7 +318,6 @@ class Plotter:
             
             print(f"Making plot {i} out of {tmax}.")
             
-            # fig = plot_time(instrument, dataarr, timestep=i, addtext=label)
             fig = self.plot_atmosphere_det(samples, timestep=i)
             
             # Capture the plot as an image in memory
@@ -378,7 +361,6 @@ class Plotter:
         x_tod = {k: samples.pos[k] for k in samples.pos if 'comb' in k}
         best_fit_atmos = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
 
-        # re-define masks. TODO: automate & define globally.
         test = Angle(self.instrument.dets.offsets)
         pos = getattr(test, test.units).T
 
@@ -405,8 +387,6 @@ class Plotter:
         ax[1].title.set_text("true simpl. atmosphere")
         ax[2].title.set_text("pred.-true simpl. atmosphere")
         
-        # plt.show()
-        
         return fig
     
     def plot_subdets(self, z: float = np.inf) -> None:
@@ -424,7 +404,6 @@ class Plotter:
         instrument = self.instrument
 
         cmb_cmap = plt.get_cmap('cmb')
-        # cmb_cmap = plt.get_cmap('viridis')
 
         test = Angle(instrument.dets.offsets)
         pos = getattr(test, test.units).T
@@ -459,13 +438,8 @@ class Plotter:
             cmb_cmap (plt.Colormap): Colormap to use for plotting.
             z (float, optional): Gaussian beam distance in instrument. Defaults to np.inf.
         '''
-        # import matplotlib as mpl
         from matplotlib.collections import EllipseCollection
-        # from matplotlib.patches import Patch
-        # from matplotlib.colors import Normalize
         from maria.units import Angle
-
-        # norm = Normalize(vmin = np.min(col), vmax=np.max(col))
 
         fwhms = Angle(self.instrument.dets.angular_fwhm(z=z))
         offsets = Angle(self.instrument.dets.offsets)
@@ -484,11 +458,8 @@ class Plotter:
                         heights=getattr(fwhms, offsets.units)[mask],
                         angles=0,
                         units="xy",
-                        # facecolors=cmb_cmap(col),
-                        # facecolors=cmb_cmap(norm(col)),
                         edgecolors="k",
                         lw=1e-1,
-                        # alpha=0.5,
                         offsets=getattr(offsets, offsets.units)[mask],
                         transOffset=ax.transData,
                     )
@@ -503,9 +474,7 @@ class Plotter:
 
                 scatter = ax.scatter(
                     *getattr(offsets, offsets.units)[band_mask].T,
-                    # label=band.name,
                     s=2.0,
-                    # color=col,
                     c=col,
                     cmap=cmb_cmap,
                     vmin=vmin,
@@ -515,8 +484,6 @@ class Plotter:
                 i += 1
 
         fig.colorbar(scatter)
-        # fig.colorbar(collection)
-        # fig.suptitle(f"n_sub = {self.n_sub}")
         ax.set_xlabel(rf"$\theta_x$ offset ({offsets.units})")
         ax.set_ylabel(rf"$\theta_y$ offset ({offsets.units})")
 
