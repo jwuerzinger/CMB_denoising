@@ -15,7 +15,7 @@ def main(config, fit_atmos, fit_map):
     # Set up results directory name
     atmosstr = "_atmos" if fit_atmos else ""
     mapstr = "_map" if fit_map else ""
-    plotsdir = f"{config}{atmosstr}{mapstr}_{date.today()}"
+    plotsdir = f"runs/{config}{atmosstr}{mapstr}_{date.today()}"
     print(f"Saving results in {plotsdir}")
     
     # Initialise fit config

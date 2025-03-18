@@ -99,7 +99,7 @@ class FitHandler(Plotter, MariaSteering):
         super().__init__(fit_map=fit_map, fit_atmos=fit_atmos, config=config, noiselevel=noiselevel)
         self.plotsdir = plotsdir
         
-        if self.plotsdir is not None: os.system(f"mkdir {self.plotsdir}")
+        if self.plotsdir is not None: os.system(f"mkdir -p {self.plotsdir}")
         
         # jax init:
         seed = 42
