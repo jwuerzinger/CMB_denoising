@@ -107,6 +107,11 @@ class FitHandler(Plotter, MariaSteering):
         # jax init:
         seed = 42
         self.key = random.PRNGKey(seed)
+        
+        if 'atlast' in config:
+            self.downsampling_factor = 5
+        else:
+            self.downsampling_factor = 1
     
     def sample_jax_tods(self, use_truth_slope: bool = False) -> None:
         '''
@@ -321,9 +326,11 @@ class FitHandler(Plotter, MariaSteering):
             self.masklist = jnp.array(self.masklist)
         
         if self.fit_atmos:
-            self.padding_atmos = self.jax_tods_atmos.shape[1]//2 - self.jax_tods_atmos.shape[1]%2
+            # Pad atmosphere by 50%; Downsample atmosphere with downsampling factor:
+            self.padding_atmos = (self.jax_tods_atmos.shape[1]//2 - self.jax_tods_atmos.shape[1]%2)//self.downsampling_factor
+            self.dims_atmos = ( (self.jax_tods_atmos.shape[1]//self.downsampling_factor + self.padding_atmos), )
             print("Running with atmos padding:", self.padding_atmos)
-            self.dims_atmos = ( (self.jax_tods_atmos.shape[1] + self.padding_atmos), )
+            print("Running with atmos dim:", self.dims_atmos)
 
             # correlated field zero mode GP offset and stddev
             self.cf_zm_tod = dict(offset_mean=0.0, offset_std=self.params['tod_offset'])
@@ -394,16 +401,16 @@ class FitHandler(Plotter, MariaSteering):
         if self.n_sub >= 1:
             if self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_general!!")
-                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy)
+                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy, self.downsampling_factor)
             elif self.fit_atmos and not self.fit_map:
                 print("Initialising: Signal_TOD_atmos!!")
-                self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos)
+                self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, self.downsampling_factor)
             else:
                 raise ValueError("Config not supported!")
         elif self.n_sub == -1:
             if self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_alldets")
-                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy)
+                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy, self.downsampling_factor)
             elif not self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_alldets_maponly")
                 self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy)
@@ -495,20 +502,21 @@ class FitHandler(Plotter, MariaSteering):
             key=k_o, # random jax init
             draw_linear_kwargs=dict( # sampling parameters
                 cg_name="SL",
-                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=1000),
-                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 20.0, maxiter=20),
+                # cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=1000),
+                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=2000),
             ),
             nonlinearly_update_kwargs=dict( # map from multivariate gaussian to more compl. distribution (coordinate transformations)
                 minimize_kwargs=dict(
                     name="SN",
                     xtol=delta,
                     cg_kwargs=dict(name=None),
-                    maxiter=5,
+                    # maxiter=5,
+                    maxiter=20,
                 )
             ),
             kl_kwargs=dict( # shift transformed multivar gauss to best match true posterior
                 minimize_kwargs=dict(
-                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=100 # map
+                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=200 # map
                     # name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=20 # map
                 )
             ),

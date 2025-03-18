@@ -9,7 +9,7 @@ from nifty_maria.mapsampling_jax import sample_maps
 
 # Signal Model (map + atmos) for all subdets:
 class Signal_TOD_alldets(jft.Model):
-    def __init__(self, gp_tod, offset_tod_truth, slopes_truth, gp_map, dims_map, padding_map, dims_atmos, padding_atmos, sim_truthmap, dx, dy):
+    def __init__(self, gp_tod, offset_tod_truth, slopes_truth, gp_map, dims_map, padding_map, dims_atmos, padding_atmos, sim_truthmap, dx, dy, downsampling_factor):
         self.gp_tod = gp_tod
         self.gp_map = gp_map
         self.offset_tod_truth = offset_tod_truth[:, None]
@@ -23,6 +23,8 @@ class Signal_TOD_alldets(jft.Model):
         self.sim_truthmap = sim_truthmap
         self.dx = dx
         self.dy = dy
+        
+        self.downsampling_factor = downsampling_factor
 
         # super().__init__(init = self.gp_tod.init | self.gp_map.init | self.offset_tod.init,
         #                  domain = self.gp_tod.domain | self.gp_map.domain | self.offset_tod.domain)
@@ -47,8 +49,8 @@ class Signal_TOD_alldets(jft.Model):
         res_tods_fulldet = res_tods
 
         # From TOD-only fit:
-        res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
-        # res_tods_offset = res_tods_fulldet
+        # res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
+        res_tods_offset = jnp.repeat(res_tods_fulldet, self.downsampling_factor, axis=1) * self.slopes_truth + self.offset_tod_truth
 
         # res_map = sample_maps(jax.numpy.broadcast_to(self.gp_map(x), (1, dims_map[0], dims_map[1]))[:, padding_map//2:-padding_map//2, padding_map//2:-padding_map//2], dx, dy, sim_truthmap.map.resolution, sim_truthmap.map.x_side, sim_truthmap.map.y_side)
         # res_map = sample_maps(jax.numpy.broadcast_to(self.gp_map(x), (1, 1, dims_map[0], dims_map[1])), dx, dy, sim_truthmap.map.resolution, sim_truthmap.map.x_side, sim_truthmap.map.y_side)
@@ -61,13 +63,15 @@ class Signal_TOD_alldets(jft.Model):
 
 # Signal Model (atmos only) for 0th subdet:
 class Signal_TOD_atmos(jft.Model):
-    def __init__(self, gp_tod, offset_tod_truth, slopes_truth, dims_atmos, padding_atmos):
+    def __init__(self, gp_tod, offset_tod_truth, slopes_truth, dims_atmos, padding_atmos, downsampling_factor):
         self.gp_tod = gp_tod
         self.offset_tod_truth = offset_tod_truth[:, None]
         self.slopes_truth = slopes_truth[:, None]
 
         self.dims_atmos = dims_atmos
         self.padding_atmos = padding_atmos
+        
+        self.downsampling_factor = downsampling_factor
         
         super().__init__(init = self.gp_tod.init,
                         domain = self.gp_tod.domain )
@@ -82,7 +86,8 @@ class Signal_TOD_atmos(jft.Model):
         res_tods_fulldet = res_tods
 
         # From TOD-only fit:
-        res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
+        # res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
+        res_tods_offset = jnp.repeat(res_tods_fulldet, self.downsampling_factor, axis=1) * self.slopes_truth + self.offset_tod_truth
 
         return res_tods_offset
     
@@ -111,7 +116,7 @@ class Signal_TOD_alldets_maponly(jft.Model):
 
 # Signal Model (map + atmos) for masked subdets:
 class Signal_TOD_general(jft.Model):
-    def __init__(self, gp_tod, offset_tod_truth, slopes_truth, gp_map, dims_map, padding_map, dims_atmos, padding_atmos, masklist, sim_truthmap, dx, dy):
+    def __init__(self, gp_tod, offset_tod_truth, slopes_truth, gp_map, dims_map, padding_map, dims_atmos, padding_atmos, masklist, sim_truthmap, dx, dy, downsampling_factor):
         self.gp_tod = gp_tod
         self.gp_map = gp_map
         self.offset_tod_truth = offset_tod_truth[:, None]
@@ -126,6 +131,8 @@ class Signal_TOD_general(jft.Model):
         self.sim_truthmap = sim_truthmap
         self.dx = dx
         self.dy = dy
+        
+        self.downsampling_factor = downsampling_factor
 
         super().__init__(init = self.gp_tod.init | self.gp_map.init,
                         domain = self.gp_tod.domain | self.gp_map.domain )
@@ -136,7 +143,6 @@ class Signal_TOD_general(jft.Model):
         res_tods = self.gp_tod(x_tod)
 
         res_tods = res_tods[:, self.padding_atmos//2:-self.padding_atmos//2]
-        
         ## Opt1: set (only works in for loop & with masklist as list)
         # res_tods_fulldet = jnp.zeros( (self.slopes_truth.shape[0], res_tods.shape[1]) )
         # for i in range(len(self.masklist)):
@@ -170,7 +176,8 @@ class Signal_TOD_general(jft.Model):
         # print("post einsum shape:", res_tods_fulldet.shape)
 
         # Correct tods by offset and slope
-        res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
+        # res_tods_offset = res_tods_fulldet * self.slopes_truth + self.offset_tod_truth
+        res_tods_offset = jnp.repeat(res_tods_fulldet, self.downsampling_factor, axis=1) * self.slopes_truth + self.offset_tod_truth
 
         # Sample map and add
         gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]

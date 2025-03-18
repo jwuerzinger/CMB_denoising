@@ -105,15 +105,8 @@ class MariaSteering:
             self.instrument.plot()
             
             self.params = {
-                # 'tod_offset' : (5e-5, 4e-5),
-                # 'tod_fluct' : (0.01, 0.003),
-                # 'tod_loglog' : (-2.2, 0.2),
-                # 'map_offset' : (1e-8, 1e-7),
-                # 'map_fluct' : (5.5e-5, 1e-6),
-                # 'map_loglog' : (-3.7, 0.1),
                 'tod_offset' : (5e-5, 1e-5),
-                # 'tod_fluct' : (0.073, 0.003),
-                'tod_fluct' : (0.087, 0.003),
+                'tod_fluct' : (0.113, 0.003),
                 'tod_loglog' : (-2.8, 0.2),
                 'map_offset' : (5.3e-7, 1e-7),
                 'map_fluct' : (6.1e-5, 1e-6),

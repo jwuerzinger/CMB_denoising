@@ -60,11 +60,11 @@ class Plotter:
             mean_atmos, std = jft.mean_and_std(tuple(preds))
 
             for i in range(0, n, n//10 if n//10 != 0 else 1):
-                axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i], label=f"tod{i}")
+                # axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i], label=f"tod{i}")
+                axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor), label=f"tod{i}")
                 # axes_tods[0].plot(denoised_jax_tod[i], label=f"truth{i}")
                 axes_tods[0].plot(self.atmos_tod_simplified[i], label=f"truth{i}")
-                axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]), mean_atmos[i] - self.atmos_tod_simplified[i], label=f"tod{i}")
-                # axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]), mean[i] - mean_atmos[i], label=f"tod{i}")
+                axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor) - self.atmos_tod_simplified[i], label=f"tod{i}")
 
             fig_tods.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
             axes_tods[0].title.set_text('mean atmos pred. & simplified truth (no noise)')
@@ -201,7 +201,10 @@ class Plotter:
             
             x_tod = {k: samples.pos[k] for k in samples.pos if 'comb' in k}
             res_tods = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
-
+            # print("HAH:", res_tods.shape)
+            res_tods = jnp.repeat(res_tods, self.downsampling_factor)[None, :]
+            # print("HAH2:", res_tods.shape)
+            
             components += [res_tods, self.tod_truthmap.get_field('atmosphere')]
             labels += ['pred. atmos', 'true atmos']
             linestyles += ['-', '--']
@@ -210,6 +213,8 @@ class Plotter:
         for i in range(len(components)):
             
             f, ps = sp.signal.periodogram(components[i], fs=self.tod_truthmap.fs, window="tukey")
+
+            # print("HERE:", f.shape, ps.shape)
 
             f_bins = np.geomspace(f[1], f[-1], 256)
             f_mids = np.sqrt(f_bins[1:] * f_bins[:-1])
