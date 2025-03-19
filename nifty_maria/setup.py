@@ -17,6 +17,7 @@ setup(
     packages=find_packages(),
     # package_data={'': ['data/*.csv']},
     install_requires=['numpy',
+                      'jax[cuda12]'
                       ],
 
     classifiers=[
