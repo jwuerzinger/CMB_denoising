@@ -10,6 +10,9 @@ os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
 # Disable default memory preallocation strategy for more control
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
+# Enable double precision in JAX:
+os.environ['JAX_ENABLE_X64'] = 'True' 
+
 import numpy as np
 import matplotlib.pyplot as plt
 
