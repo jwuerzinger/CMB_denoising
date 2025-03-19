@@ -18,11 +18,8 @@ git clone --recurse-submodules git@github.com:jwuerzinger/CMB_denoising.git
 
 Install both submodules with
 ```bash
-cd nifty
-pip install -U "jax[cuda12]"
-pip install --user --editable '.[re]'
-cd ../
-pip install maria/ -e
+pip install -e maria/
+pip install -e nifty/[re]
 ```
 
 If necessary, there are dedicated installation instructions for `maria` [here](https://thomaswmorris.com/maria/installation.html).
@@ -30,7 +27,7 @@ If necessary, there are dedicated installation instructions for `maria` [here](h
 Next, install this package with:
 
 ```bash
-pip install nifty_maria/ -e
+pip install -e nifty_maria/
 ```
 
 ## Running
