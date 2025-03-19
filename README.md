@@ -8,6 +8,9 @@ Don't hesitate to reach out to me directly or open an issue in case you spot any
 
 ## Installation
 
+I will conserve my conda environment and supply automated installation instructions here, once the server lets me..
+Until then, please follow these manual instructions:
+
 The `maria` and `NIFTy` repos are both added as submodules to this repo. after cloning this repo with submodules with
 ```bash
 git clone --recurse-submodules git@github.com:jwuerzinger/CMB_denoising.git
@@ -15,7 +18,10 @@ git clone --recurse-submodules git@github.com:jwuerzinger/CMB_denoising.git
 
 Install both submodules with
 ```bash
-pip install nifty/ -e
+cd nifty
+pip install -U "jax[cuda12]"
+pip install --user --editable '.[re]'
+cd ../
 pip install maria/ -e
 ```
 
