@@ -8,18 +8,19 @@ version = "0.0.1"
 description = "Library for Nifty fits of maria data."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "BSD" }
+license = { text = "MIT" }
 authors = [
     { name = "Jonas Wuerzinger", email = "jonas.wuerzinger@tum.de" }
 ]
 dependencies = [
     "numpy",
     "jax[cuda12]",
+    "scikit-image",
 ]
 classifiers = [
 "Development Status :: 3 - Alpha",
 "Intended Audience :: Science/Research",
-"License :: OSI Approved :: BSD License",
+"License :: OSI Approved :: MIT License",
 "Operating System :: POSIX :: Linux",
 "Programming Language :: Python :: 3.11",
 "Programming Language :: Python :: 3.12",
