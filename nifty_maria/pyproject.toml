@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nifty_maria"
+version = "0.0.1"
+description = "Library for Nifty fits of maria data."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "BSD" }
+authors = [
+    { name = "Jonas Wuerzinger", email = "jonas.wuerzinger@tum.de" }
+]
+dependencies = [
+    "numpy",
+    "jax[cuda12]",
+]
+classifiers = [
+"Development Status :: 3 - Alpha",
+"Intended Audience :: Science/Research",
+"License :: OSI Approved :: BSD License",
+"Operating System :: POSIX :: Linux",
+"Programming Language :: Python :: 3.11",
+"Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/jwuerzinger/CMB_denoising"
+
+[tool.setuptools]
+packages = ["nifty_maria"]
+
+# Uncomment if you want to include package data (e.g., CSV files)
+# [tool.setuptools.package-data]
+# "" = ["data/*.csv"]
+
+# Uncomment if you have console scripts
+# [project.scripts]
+# niceplot = "niceplot.__main__:niceplot"
