@@ -58,7 +58,7 @@ class Plotter:
             for i in range(0, n, n//10 if n//10 != 0 else 1):
                 axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor), label=f"tod{i}")
                 axes_tods[0].plot(self.atmos_tod_simplified[i], label=f"truth{i}")
-                axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor) - self.atmos_tod_simplified[i], label=f"tod{i}")
+                axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor) - jnp.array(self.atmos_tod_simplified[i]), label=f"tod{i}")
 
             fig_tods.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
             axes_tods[0].title.set_text('mean atmos pred. & simplified truth (no noise)')
