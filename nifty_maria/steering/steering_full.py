@@ -11,10 +11,12 @@ from nifty_maria.FitHandler import FitHandler
 @click.option('--config', default='atlast', help='Config for fit. Supported values are: atlast/mustang. Defaults to atlast.')
 @click.option('--fit_atmos', default=True, type=bool, help='Boolean for fitting atmosphere. Defaults to True.')
 @click.option('--fit_map', default=True, type=bool, help='Boolean for fitting map. Defaults to True.')
+@click.option('--nit_glob', default=30, type=int, help='Number of global iterations. Defaults to 30.')
 @click.option('--nit_sl', default=2000, type=int, help='Maximum number of linear sampling iterations per global iteration. Defaults to 2000.')
 @click.option('--nit_sn', default=20, type=int, help='Maximum number of nonlinear sampling iterations per global iteration. Defaults to 20.')
 @click.option('--nit_m', default=200, type=int, help='Maximum number of minimisation iterations per global iteration. Defaults to 200.')
-def main(config, fit_atmos, fit_map, nit_sl, nit_sn, nit_m):
+@click.option('--printevery', default=5, type=int, help='Number of global iterations between plotting & printing results. Defaults to 5.')
+def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery):
     if config not in ['mustang', 'atlast']: raise ValueError("Unsupported config provided! Please choose between mustang/atlast.")
 
     # Set up results directory name
@@ -51,8 +53,8 @@ def main(config, fit_atmos, fit_map, nit_sl, nit_sn, nit_m):
         if i == 0: prior_s = fit.draw_prior_sample()
 
         # Perform fit
-        if i == -1: samples, state = fit.perform_fit(n_it=30, printevery=1)
-        else: samples, state = fit.perform_fit(n_it=30, printevery=5)
+        if i == -1: samples, state = fit.perform_fit(nit_glob=nit_glob, printevery=printevery)
+        else: samples, state = fit.perform_fit(nit_glob=nit_glob, printevery=printevery)
         
         # Show results:
         fit.printfitresults(samples)

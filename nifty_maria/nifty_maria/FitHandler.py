@@ -446,12 +446,12 @@ class FitHandler(Plotter, MariaSteering):
         
         return res
     
-    def perform_fit(self, n_it: int = 1, fit_type: str = 'full', printevery: int = 2) -> tuple[jft.evi.Samples, OptimizeVIState]:
+    def perform_fit(self, nit_glob: int = 1, fit_type: str = 'full', printevery: int = 2) -> tuple[jft.evi.Samples, OptimizeVIState]:
         """
         Performs nifty fit based on prior initialisation.
         
         Args:
-            n_it (int): Integer value determining number of global iterations during optimisation. Defaults to 1.
+            nit_glob (int): Integer value determining number of global iterations during optimisation. Defaults to 1.
             fit_type (str): String determining fit configuration. Options are 'full' for full MGVI fit and 'map' for maximum aposteriori. Defaults to 'full'.
             printevery (int, optional): Integer determining interval for plotting intermediate fit results. Defaults to 2.
         
@@ -491,7 +491,7 @@ class FitHandler(Plotter, MariaSteering):
         samples, state = jft.optimize_kl(
             self.lh, # likelihood
             self.initial_pos, # initial position in model space (initialisation)
-            n_total_iterations=n_it, # no of optimisation steps (global)
+            n_total_iterations=nit_glob, # no of optimisation steps (global)
             n_samples=n_samples, # draw samples
             key=k_o, # random jax init
             draw_linear_kwargs=dict( # sampling parameters
