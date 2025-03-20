@@ -1,6 +1,7 @@
 """
 Module to collect maria steering configs and code.
 """
+
 import numpy as np
 import maria
 import matplotlib.pyplot as plt

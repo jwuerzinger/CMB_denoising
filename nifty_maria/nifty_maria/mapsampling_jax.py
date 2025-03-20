@@ -1,6 +1,7 @@
 """
 Module collecting loose set of jax-ified and jit-ed mapsampling functions.
 """
+
 import jax
 import numpy as np
 

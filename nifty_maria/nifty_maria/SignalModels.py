@@ -1,6 +1,7 @@
 """
 Module collecting nifty signal models used in maria fits.
 """
+
 import nifty8.re as jft
 import jax.numpy as jnp
 

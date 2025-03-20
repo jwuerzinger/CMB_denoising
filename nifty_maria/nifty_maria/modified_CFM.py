@@ -1,6 +1,7 @@
 """
 Module containing modified Correlated Field Model for handling atmosphere TODs.
 """
+
 import jax
 
 import jax.numpy as jnp

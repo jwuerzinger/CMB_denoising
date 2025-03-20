@@ -1,6 +1,7 @@
 """
 Module to collect fit config for nifty-maria fits.
 """
+
 import os
 
 # Set JAX to preallocate 90% of the GPU memory
