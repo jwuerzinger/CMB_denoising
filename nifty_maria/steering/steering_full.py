@@ -8,7 +8,7 @@ from datetime import date
 from nifty_maria.FitHandler import FitHandler
 
 @click.command(help=__doc__)
-@click.option('--config', default='atlast', help='Config for fit. Supported values are: atlas/mustang.')
+@click.option('--config', default='atlast', help='Config for fit. Supported values are: atlast/mustang.')
 @click.option('--fit_atmos', default=True, type=bool, help='Boolean for fitting atmosphere.')
 @click.option('--fit_map', default=True, type=bool, help='Boolean for fitting map.')
 
