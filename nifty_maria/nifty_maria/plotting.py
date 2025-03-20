@@ -1,6 +1,6 @@
-'''
+"""
 Module to colloct plotting functions for nifty-maria fits.
-'''
+"""
 
 import numpy as np
 import jax.numpy as jnp
@@ -11,15 +11,15 @@ from nifty8.re.optimize_kl import OptimizeVIState
 from nifty_maria.mapsampling_jax import sample_maps
 
 class Plotter:
-    '''Subclass containing plotting functionalities.'''
+    """Subclass containing plotting functionalities."""
     def callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
-        '''
+        """
         Callback function to be used for plotting fit status during optimisation.
         
         Args:
             samples (jft.evi.Samples): Samples to perform plots for.
             opt_state (jft.optimize_kl.OptimizeVIState): Optimisation state to plot.
-        '''
+        """
         cmb_cmap = plt.get_cmap('cmb')
         
         iter = opt_state[0]
@@ -100,12 +100,12 @@ class Plotter:
         return
         
     def plotfitresults(self, samples: jft.evi.Samples) -> None:
-        '''
+        """
         Plots predictions made by optimised GP and compares with truth.
         
         Args:
             samples (jft.evi.Samples): Samples to plot fit results for.
-        '''
+        """
         cmb_cmap = plt.get_cmap('cmb')
         
         res = self.signal_response_tod(samples.pos)
@@ -158,12 +158,12 @@ class Plotter:
         return 
     
     def plotpowerspectrum(self, samples: jft.evi.Samples) -> None:
-        '''
+        """
         Plots power spectrum of predictions made by optimised GP and compares with truth.
         
         Args:
             samples (jft.evi.Samples): Samples to plot power spectrum for.
-        '''
+        """
         import scipy as sp
         from itertools import cycle
 
@@ -234,12 +234,12 @@ class Plotter:
         return
     
     def plotrecos(self, samples: jft.evi.Samples) -> None:
-        '''
+        """
         Plots comparison between maria and nifty reconstructions of the map with the true map.
         
         Args:
             samples (jft.evi.Samples): Samples to make comparison for.
-        '''
+        """
         from skimage.transform import resize
 
         # Compare nifty vs maria
@@ -289,7 +289,7 @@ class Plotter:
         return 
         
     def make_atmosphere_det_gif(self, samples: jft.evi.Samples, figname: str = 'atmosphere_comp.gif', tmax: int = -1, num_frames: int = 100) -> None:
-        '''
+        """
         Makes gif of simplified atmosphere prediction and truth in 2D detector layout. Does nothing if self.fit_atmos == False.
         
         Args:
@@ -297,7 +297,7 @@ class Plotter:
             figname (str, optional): Location to save gif in. Defaults to 'atmosphere_comp.gif'
             tmax (int, optional): Maximum timestep to consider. If -1, will loop over all timesteps. Defaults to -1.
             num_frames (int, optional): Number of total frames to plot. Defaults to 100.
-        '''
+        """
         
         if not self.fit_atmos:
             print("Not fitting atmosphere, skipping plot..")
@@ -337,7 +337,7 @@ class Plotter:
         return 
     
     def plot_atmosphere_det(self, samples: jft.evi.Samples, timestep: int = 0, z: float = np.inf) -> plt.Figure:
-        '''
+        """
         Plots simplified atmosphere prediction and truth in 2D detector layout. Returns figure. Does nothing if self.fit_atmosphere == False.
         
         Args:
@@ -348,7 +348,7 @@ class Plotter:
         Returns:
             plt.Figure: The produced figure object.
         
-        '''
+        """
         
         if not self.fit_atmos:
             print("Not fitting atmosphere, skipping plot..")
@@ -390,7 +390,7 @@ class Plotter:
         return fig
     
     def plot_subdets(self, z: float = np.inf) -> None:
-        '''
+        """
         Plots detector with n_sub subdetectors highlighted in color.
         
         Args:
@@ -398,7 +398,7 @@ class Plotter:
 
         Raises:
             ValueError: If invalid n_sub value is supplied.
-        '''
+        """
         from maria.units import Angle
 
         instrument = self.instrument
@@ -428,7 +428,7 @@ class Plotter:
         return 
     
     def plot_instrument(self, fig: plt.Figure, ax: plt.Axes, col: np.ndarray, cmb_cmap: plt.Colormap, z: float = np.inf) -> None:
-        '''
+        """
         Plots detector with a given color values col into figure fig and axis ax.
         
         Args:
@@ -437,7 +437,7 @@ class Plotter:
             col (np.ndarray): Numpy array containing colors to be plotted.
             cmb_cmap (plt.Colormap): Colormap to use for plotting.
             z (float, optional): Gaussian beam distance in instrument. Defaults to np.inf.
-        '''
+        """
         from matplotlib.collections import EllipseCollection
         from maria.units import Angle
 

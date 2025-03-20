@@ -1,6 +1,6 @@
-'''
+"""
 Module to collect fit config for nifty-maria fits.
-'''
+"""
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
@@ -29,7 +29,7 @@ import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
 
 class FitHandler(Plotter, MariaSteering):
-    '''
+    """
     A steering class to handle nifty fits using data generated with maria.
 
     Attributes:
@@ -83,9 +83,9 @@ class FitHandler(Plotter, MariaSteering):
         >>> samples, state = fit.perform_fit(fit_type = 'map')
         >>> fit.printfitresults(samples)
         >>> fit.plotfitresults(samples)
-    '''
+    """
     def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast_debug', noiselevel: int = 1.0, plotsdir: str = None) -> None:
-        '''
+        """
         Initialises the FitHandler with base attributes.
         
         Args:
@@ -97,7 +97,7 @@ class FitHandler(Plotter, MariaSteering):
             
         Raises:
             ValueError: If invalid configuration is used.
-        '''
+        """
         print("Initialising...")
         super().__init__(fit_map=fit_map, fit_atmos=fit_atmos, config=config, noiselevel=noiselevel)
         self.plotsdir = plotsdir
@@ -114,7 +114,7 @@ class FitHandler(Plotter, MariaSteering):
             self.downsampling_factor = 1
     
     def sample_jax_tods(self, use_truth_slope: bool = False) -> None:
-        '''
+        """
         Sample TODs using jax map sampling, make plots comparing to TODs generated with maria and decorate self with simulated TODs.
         
         Args:
@@ -128,7 +128,7 @@ class FitHandler(Plotter, MariaSteering):
             slopes_tod (array): Array with slopes between atmosphere TODs. Taken from data if use_truth_slope=False, otherwise taken from the true atmosphere TODs. Added by FitHandler.sample_jax_tods(). 
             offset_tod (array): Array with offsets between atmosphere TODs. Taken from data if use_truth_slope=False, otherwise taken from the true atmosphere TODs. Added by FitHandler.sample_jax_tods(). 
             atmos_tod_simplified (array): Array with simplified atmosphere TODs, removing offsets and slopes. Added by FitHandler.sample_jax_tods(). 
-        '''
+        """
         
         # Sample map with jax function and plot comparison
         self.jax_tods_map = sample_maps(self.mapdata_truth, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
@@ -224,7 +224,7 @@ class FitHandler(Plotter, MariaSteering):
         return 
         
     def init_gps(self, n_split: int = 0, samples: jft.evi.Samples = None) -> None:
-        '''
+        """
         Initialise atmosphere and map GPs. If n_sub and samples are provided, split atmos GPs in n_sub from samples.
         
         Args:
@@ -250,7 +250,7 @@ class FitHandler(Plotter, MariaSteering):
         
         Raises:
             ValueError: If invalid number of splittings n_split or invalid combination fo n_sub and samples is supplied.
-        '''
+        """
 
         self.n_split = n_split
         if self.n_split >= 0:
@@ -414,12 +414,12 @@ class FitHandler(Plotter, MariaSteering):
         return 
     
     def draw_prior_sample(self) -> jax.Array:
-        '''
+        """
         Draws sample from prior model and makes a plot of sample drawn. Returns array with corresponding signal response. 
         
         Returns:
             jax.Array: A jax array containing signal response.
-        '''
+        """
         self.key, sub = jax.random.split(self.key)
         xi = jft.random_like(sub, self.signal_response_tod.domain)
         res = self.signal_response_tod(xi)
@@ -436,7 +436,7 @@ class FitHandler(Plotter, MariaSteering):
         return res
     
     def perform_fit(self, n_it: int = 1, fit_type: str = 'full', printevery: int = 2) -> tuple[jft.evi.Samples, OptimizeVIState]:
-        '''
+        """
         Performs nifty fit based on prior initialisation.
         
         Args:
@@ -448,7 +448,7 @@ class FitHandler(Plotter, MariaSteering):
             :tuple[jft.evi.Samples, jft.optimize_kl.OptimizeVIState]: A tuple containing:
             - jft.evi.Samples: The samples obtained after fit has been performed
             - jft.optimize_kl.OptimizeVIState: The optimisation state after fit has been performed.
-        '''
+        """
         # Promote printevery to argument to be accessible:
         self.printevery = printevery
         
@@ -507,12 +507,12 @@ class FitHandler(Plotter, MariaSteering):
         return samples, state
     
     def printfitresults(self, samples: jft.evi.Samples) -> None:
-        '''
+        """
         Prints optimised GP parameters and initial parameters for map and atmosphere GPs.
         
         Args:
             samples (jft.evi.Samples): Samples to print fit results for.
-        '''
+        """
         print(f"Fit Results (res, init, std) for n_sub = {self.n_sub}")
 
         if self.fit_atmos:

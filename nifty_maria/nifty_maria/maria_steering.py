@@ -1,6 +1,6 @@
-'''
+"""
 Module to collect maria steering configs and code.
-'''
+"""
 import numpy as np
 import maria
 import matplotlib.pyplot as plt
@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import nifty_maria.mapsampling_jax
 
 class MariaSteering:
-    '''Subclass for steering maria code.'''
+    """Subclass for steering maria code."""
     def __init__(self, fit_map: bool, fit_atmos: bool, config: str, noiselevel: int) -> None:
-        '''
+        """
         Initialize the steering handler.
         
         Args:
@@ -21,7 +21,7 @@ class MariaSteering:
         
         Raises:
             ValueError: If invalid configuration is used.
-        '''
+        """
         self.config = config
         self.fit_map = fit_map
         self.fit_atmos = fit_atmos
@@ -173,7 +173,7 @@ class MariaSteering:
         return
     
     def simulate(self) -> None:
-        '''
+        """
         Performs maria simulation and decorates self with simulation parameters.
         
         Dynamic Attributes (Added by Methods):
@@ -181,7 +181,7 @@ class MariaSteering:
             tod_truthmap (TOD): TOD object containing simulated time-stream data. Added by FitHandler.simulate().
             dx (array): Array with detector offsets in x-direction. Added by FitHandler.simulate().
             dy (array): Array with detector offsets in y-direction. Added by FitHandler.simulate().
-        '''
+        """
         self.sim_truthmap = maria.Simulation(
             self.instrument, 
             plan=self.plan,
@@ -204,14 +204,14 @@ class MariaSteering:
         return 
     
     def reco_maria(self) -> None:
-        '''
+        """
         Performs maria reconstruction and decorates self with reconstructed maps.
         
         Dynamic Attributes (Added by Methods):
             output_truthmap (Map): Noised Map object obtained by reconstruction without postprocessing. Added by FitHandler.reco_maria().
             mapdata_truth (array): Array with true simulated map. Added by FitHandler.reco_maria().
             output_map (Map): Map opbject obtained by reconstruction with postprocessing. Added by FitHandler.reco_maria().
-        '''
+        """
         from maria.mappers import BinMapper
 
         cmb_cmap = plt.get_cmap('cmb')

@@ -1,13 +1,13 @@
-'''
+"""
 Module collecting nifty signal models used in maria fits.
-'''
+"""
 import nifty8.re as jft
 import jax.numpy as jnp
 
 from nifty_maria.mapsampling_jax import sample_maps
 
 class Signal_TOD_alldets(jft.Model):
-    '''Signal Model (map + atmos) for all subdets'''
+    """Signal Model (map + atmos) for all subdets"""
     def __init__(self, gp_tod, offset_tod_truth, slopes_truth, gp_map, dims_map, padding_map, dims_atmos, padding_atmos, sim_truthmap, dx, dy, downsampling_factor):
         self.gp_tod = gp_tod
         self.gp_map = gp_map
@@ -46,7 +46,7 @@ class Signal_TOD_alldets(jft.Model):
         return modified_res_map
 
 class Signal_TOD_atmos(jft.Model):
-    '''Signal Model (atmos only) for 0th subdet'''
+    """Signal Model (atmos only) for 0th subdet"""
     def __init__(self, gp_tod, offset_tod_truth, slopes_truth, dims_atmos, padding_atmos, downsampling_factor):
         self.gp_tod = gp_tod
         self.offset_tod_truth = offset_tod_truth[:, None]
@@ -74,7 +74,7 @@ class Signal_TOD_atmos(jft.Model):
         return res_tods_offset
     
 class Signal_TOD_alldets_maponly(jft.Model):
-    '''Signal Model (map only) for all subdets'''
+    """Signal Model (map only) for all subdets"""
     def __init__(self, gp_map, dims_map, padding_map, sim_truthmap, dx, dy):
         self.gp_map = gp_map
 
@@ -96,7 +96,7 @@ class Signal_TOD_alldets_maponly(jft.Model):
         return modified_res_map
 
 class Signal_TOD_general(jft.Model):
-    '''Signal Model (map + atmos) for masked subdets'''
+    """Signal Model (map + atmos) for masked subdets"""
     def __init__(self, gp_tod, offset_tod_truth, slopes_truth, gp_map, dims_map, padding_map, dims_atmos, padding_atmos, masklist, sim_truthmap, dx, dy, downsampling_factor):
         self.gp_tod = gp_tod
         self.gp_map = gp_map
