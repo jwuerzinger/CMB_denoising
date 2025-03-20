@@ -5,7 +5,7 @@ Script for steering nifty_maria fits. Takes atlast/mustang config as input and a
 
 import click
 from datetime import date
-from nifty_maria.FitHandler import FitHandler
+import os
 
 @click.command(help=__doc__)
 @click.option('--config', default='atlast', help='Config for fit. Supported values are: atlast/mustang. Defaults to atlast.')
@@ -16,8 +16,11 @@ from nifty_maria.FitHandler import FitHandler
 @click.option('--nit_sn', default=20, type=int, help='Maximum number of nonlinear sampling iterations per global iteration. Defaults to 20.')
 @click.option('--nit_m', default=200, type=int, help='Maximum number of minimisation iterations per global iteration. Defaults to 200.')
 @click.option('--printevery', default=5, type=int, help='Number of global iterations between plotting & printing results. Defaults to 5.')
-def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery):
+@click.option('--cudadevice', default='3', type=str, help='CUDA device to run on. Defaults to "3".')
+def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery, cudadevice):
     if config not in ['mustang', 'atlast']: raise ValueError("Unsupported config provided! Please choose between mustang/atlast.")
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = cudadevice
 
     # Set up results directory name
     atmosstr = "_atmos" if fit_atmos else ""
@@ -26,6 +29,7 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
     print(f"Saving results in {plotsdir}")
     
     # Initialise fit config
+    from nifty_maria.FitHandler import FitHandler
     fit = FitHandler(config=config, fit_atmos=fit_atmos, fit_map=fit_map, plotsdir=plotsdir, nit_sl=nit_sl, nit_sn=nit_sn, nit_m=nit_m)
 
     # Simulate TODs with maria

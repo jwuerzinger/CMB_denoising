@@ -2,7 +2,6 @@
 Module to collect fit config for nifty-maria fits.
 """
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 # Set JAX to preallocate 90% of the GPU memory
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
