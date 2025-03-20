@@ -1,10 +1,13 @@
 #!/usr/bin/env python
+"""
+Script for steering nifty_maria fits. Takes atlast/mustang config as input and automatically sets necessary maria and nifty configuration downstream. Supports fitting atmosphere and map separately for fit parameter optimisation.
+"""
 
 import click
 from datetime import date
 from nifty_maria.FitHandler import FitHandler
 
-@click.command()
+@click.command(help=__doc__)
 @click.option('--config', default='atlast', help='Config for fit. Supported values are: atlas/mustang.')
 @click.option('--fit_atmos', default=True, type=bool, help='Boolean for fitting atmosphere.')
 @click.option('--fit_map', default=True, type=bool, help='Boolean for fitting map.')
