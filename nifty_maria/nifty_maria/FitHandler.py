@@ -88,14 +88,14 @@ class FitHandler(Plotter, MariaSteering):
         >>> fit.printfitresults(samples)
         >>> fit.plotfitresults(samples)
     """
-    def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast_debug', noiselevel: int = 1.0, plotsdir: str = None, nit_sl: int = 2000, nit_sn: int = 20, nit_m: int = 200) -> None:
+    def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast', noiselevel: int = 1.0, plotsdir: str = None, nit_sl: int = 2000, nit_sn: int = 20, nit_m: int = 200) -> None:
         """
         Initialises the FitHandler with base attributes.
         
         Args:
             fit_map (bool, optional): Perform fit of map if True. Defaults to True.
             fit_atmos (bool, optional): Perform fit of atmosphere if True. Defaults to True.
-            config (str, optional): The detector configuraion to run on. Options are: 'mustang', 'atlast' and 'atlast_debug'. Defaults to 'atlast_debug'.
+            config (str, optional): The detector configuraion to run on. Options are: 'mustang', 'atlast' and. Defaults to 'atlast'.
             noiselevel (float, optional): The fraction of noise to add. Defaults to 1.0.
             plotsdir (str, optional): Directory to save results in. Defaults to None, resulting in plt.show().
             nit_sl (int, optional): Maximum number of linear sampling iterations per global iteration. Defaults to 2000.

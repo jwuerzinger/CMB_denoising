@@ -17,7 +17,7 @@ class MariaSteering:
         Args:
             fit_map (bool): Perform fit of map if True.
             fit_atmos (bool): Perform fit of atmosphere if True.
-            config (str): The detector configuraion to run on. Options are: 'mustang', 'atlast' and 'atlast_debug'.
+            config (str): The detector configuraion to run on. Options are: 'mustang' and 'atlast'.
             noiselevel (float): The fraction of noise to add.
         
         Raises:
@@ -89,17 +89,6 @@ class MariaSteering:
                       scan_center=self.scan_center,
                       frame="ra_dec")
             
-            # For debugging:
-            # self.plan = maria.get_plan(scan_pattern="daisy",
-            #           scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
-            #           duration=60, # in seconds
-            #         # duration=6, # TODO: change back!
-            #         #   sample_rate=225, # in Hz
-            #           sample_rate=25, # in Hz # TODO: change back!
-            #           start_time = "2022-08-10T06:00:00",
-            #           scan_center=self.scan_center,
-            #           frame="ra_dec")
-            
             self.plan.plot()
 
             self.instrument = nifty_maria.mapsampling_jax.get_atlast()
@@ -116,56 +105,6 @@ class MariaSteering:
                 'noise' : lambda x: 0.00028**-2 * x, # For 225 Hz
                 # 'noise' : lambda x: 1.9e-4**-2 * x, # For 100 Hz
                 # 'noise' : lambda x: 1.0e-4**-2 * x, # for 25Hz
-            }
-            
-        elif self.config == 'atlast_debug':
-            self.scan_center = (300, -10)
-            map_filename = maria.io.fetch("maps/cluster.fits")
-        
-        
-            self.input_map = maria.map.read_fits(
-                nu=150,
-                filename=map_filename,  # filename
-                # resolution=8.714e-05,  # pixel size in degrees
-                width=1.,
-                index=0,  # index for fits file
-                # center=(150, 10),  # position in the sky
-                center=self.scan_center,  # position in the sky
-                units="Jy/pixel",  # Units of the input map
-            )
-
-            # input_map.data *= 1e3
-            self.input_map.data *= 1e5
-            self.input_map.to(units="K_RJ").plot()
-            
-            self.plan = maria.get_plan(
-                scan_pattern="daisy",
-                scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
-                duration=60, # in seconds
-                # duration=3, # in seconds
-                # sample_rate=225, # in Hz
-                sample_rate=20, # in Hz
-                # sample_rate=100, # in Hz
-                # sample_rate=50,
-                start_time = "2022-08-10T06:00:00",
-                scan_center=self.scan_center,
-                frame="ra_dec"
-            )
-            self.plan.plot()
-            
-            # self.instrument = maria.get_instrument('MUSTANG-2')
-            # self.instrument = nifty_maria.mapsampling_jax.get_atlast()
-            self.instrument = nifty_maria.mapsampling_jax.get_dummy()
-            self.instrument.plot()
-            
-            self.params = {
-                'tod_offset' : (5e-5, 4e-5),
-                'tod_fluct' : (0.01, 0.003),
-                'tod_loglog' : (-2.2, 0.2),
-                'map_offset' : (2e-6, 1e-7),
-                'map_fluct' : (1e-4, 1e-5),
-                'map_loglog' : (-3.0, 0.1),
-                'noise' : lambda x: 1.9e-4**-2 * x,
             }
         
         else:
