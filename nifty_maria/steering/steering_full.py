@@ -8,11 +8,13 @@ from datetime import date
 from nifty_maria.FitHandler import FitHandler
 
 @click.command(help=__doc__)
-@click.option('--config', default='atlast', help='Config for fit. Supported values are: atlast/mustang.')
-@click.option('--fit_atmos', default=True, type=bool, help='Boolean for fitting atmosphere.')
-@click.option('--fit_map', default=True, type=bool, help='Boolean for fitting map.')
-
-def main(config, fit_atmos, fit_map):
+@click.option('--config', default='atlast', help='Config for fit. Supported values are: atlast/mustang. Defaults to atlast.')
+@click.option('--fit_atmos', default=True, type=bool, help='Boolean for fitting atmosphere. Defaults to True.')
+@click.option('--fit_map', default=True, type=bool, help='Boolean for fitting map. Defaults to True.')
+@click.option('--nit_sl', default=2000, type=int, help='Maximum number of linear sampling iterations per global iteration. Defaults to 2000.')
+@click.option('--nit_sn', default=20, type=int, help='Maximum number of nonlinear sampling iterations per global iteration. Defaults to 20.')
+@click.option('--nit_m', default=200, type=int, help='Maximum number of minimisation iterations per global iteration. Defaults to 200.')
+def main(config, fit_atmos, fit_map, nit_sl, nit_sn, nit_m):
     if config not in ['mustang', 'atlast']: raise ValueError("Unsupported config provided! Please choose between mustang/atlast.")
 
     # Set up results directory name
@@ -22,6 +24,7 @@ def main(config, fit_atmos, fit_map):
     print(f"Saving results in {plotsdir}")
     
     # Initialise fit config
+    # fit = FitHandler(config=config, fit_atmos=fit_atmos, fit_map=fit_map, plotsdir=plotsdir, nit_sl=nit_sl, nit_sn=nit_sn, nit_m=nit_m)
     fit = FitHandler(config=config, fit_atmos=fit_atmos, fit_map=fit_map, plotsdir=plotsdir)
 
     # Simulate TODs with maria
