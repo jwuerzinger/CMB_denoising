@@ -2,7 +2,7 @@
 Module to collect fit config for nifty-maria fits.
 """
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 # Set JAX to preallocate 90% of the GPU memory
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
@@ -35,13 +35,17 @@ class FitHandler(Plotter, MariaSteering):
     Attributes:
         fit_map (bool): Perform fit of map if True.
         fit_atmos (bool): Perform fit of atmosphere if True.
-        config (str): The detector configuraion to run on. Options are: "mustang", "atlast" and "atlast_debug".
+        config (str): The detector configuraion to run on. Options are: 'mustang', 'atlast'.
         noiselevel (float): The fraction of noise to add.
+        plotsdir (str): Directory to save results in. Defaults to None, resulting in plt.show().
+        key (KeyArray): Pseudo random number key for jax.
+        nit_sl (int): Maximum number of linear sampling iterations per global iteration.
+        nit_sn (int): Maximum number of nonlinear sampling iterations per global iteration.
+        nit_m (int): Maximum number of minimisation iterations per global iteration.
         input_map (Map): The input map of the sky to use in simulation.
         plan (Plan): The scanning pattern to simulate.
         instrument (Instrument): The detector used during simulation.
         params (dict): The dictionary containing fit parameters (initial values, stdev) for both atmosphere and map GPs used in the nifty fit.
-        key (KeyArray): Pseudo random number key for jax.
         
     Dynamic Attributes (Added by Methods):    
         sim_truthmap (Simulation): Simulation object containing instrument, plan, site, input map and parameters for noise, atmosphere and cmb simulation. Added by FitHandler.simulate().
@@ -84,7 +88,7 @@ class FitHandler(Plotter, MariaSteering):
         >>> fit.printfitresults(samples)
         >>> fit.plotfitresults(samples)
     """
-    def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast_debug', noiselevel: int = 1.0, plotsdir: str = None) -> None:
+    def __init__(self, fit_map: bool = True, fit_atmos: bool = True, config: str = 'atlast_debug', noiselevel: int = 1.0, plotsdir: str = None, nit_sl: int = 2000, nit_sn: int = 20, nit_m: int = 200) -> None:
         """
         Initialises the FitHandler with base attributes.
         
@@ -94,6 +98,9 @@ class FitHandler(Plotter, MariaSteering):
             config (str, optional): The detector configuraion to run on. Options are: 'mustang', 'atlast' and 'atlast_debug'. Defaults to 'atlast_debug'.
             noiselevel (float, optional): The fraction of noise to add. Defaults to 1.0.
             plotsdir (str, optional): Directory to save results in. Defaults to None, resulting in plt.show().
+            nit_sl (int, optional): Maximum number of linear sampling iterations per global iteration. Defaults to 2000.
+            nit_sn (int, optional): Maximum number of nonlinear sampling iterations per global iteration. Defaults to 20.
+            nit_m (int, optional): Maximum number of minimisation iterations per global iteration. Defaults to 200.
             
         Raises:
             ValueError: If invalid configuration is used.
@@ -107,6 +114,10 @@ class FitHandler(Plotter, MariaSteering):
         # jax init:
         seed = 42
         self.key = random.PRNGKey(seed)
+        
+        self.nit_sl = nit_sl
+        self.nit_sn = nit_sn
+        self.nit_m = nit_m
         
         if 'atlast' in config:
             self.downsampling_factor = 5
@@ -485,19 +496,19 @@ class FitHandler(Plotter, MariaSteering):
             key=k_o, # random jax init
             draw_linear_kwargs=dict( # sampling parameters
                 cg_name="SL",
-                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=2000), # Before 1000 for mustang; TODO: softcode
+                cg_kwargs=dict(absdelta=delta * jft.size(self.lh.domain) / 10.0, maxiter=self.nit_sl),
             ),
             nonlinearly_update_kwargs=dict( # map from multivariate gaussian to more compl. distribution (coordinate transformations)
                 minimize_kwargs=dict(
                     name="SN",
                     xtol=delta,
                     cg_kwargs=dict(name=None),
-                    maxiter=20, # Before 5 for mustang; TODO: softcode
+                    maxiter=self.nit_sn,
                 )
             ),
             kl_kwargs=dict( # shift transformed multivar gauss to best match true posterior
                 minimize_kwargs=dict(
-                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=200 # Before 20 for mustang; TODO: softcode
+                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=self.nit_m
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),

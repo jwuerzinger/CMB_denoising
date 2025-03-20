@@ -24,8 +24,7 @@ def main(config, fit_atmos, fit_map, nit_sl, nit_sn, nit_m):
     print(f"Saving results in {plotsdir}")
     
     # Initialise fit config
-    # fit = FitHandler(config=config, fit_atmos=fit_atmos, fit_map=fit_map, plotsdir=plotsdir, nit_sl=nit_sl, nit_sn=nit_sn, nit_m=nit_m)
-    fit = FitHandler(config=config, fit_atmos=fit_atmos, fit_map=fit_map, plotsdir=plotsdir)
+    fit = FitHandler(config=config, fit_atmos=fit_atmos, fit_map=fit_map, plotsdir=plotsdir, nit_sl=nit_sl, nit_sn=nit_sn, nit_m=nit_m)
 
     # Simulate TODs with maria
     fit.simulate()
