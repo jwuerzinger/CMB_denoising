@@ -308,7 +308,7 @@ class FitHandler(Plotter, MariaSteering):
         test = Angle(self.instrument.dets.offsets)
         pos = getattr(test, test.units).T
 
-        # TODO: generalise splitting here:
+        # If based off of previous fit, split array into sub-arrays and assign previous fit results as initial params
         if samples is not None and self.n_split >= 1:
             if self.n_sub != samples.pos['combcf xi'].shape[0]*2:
                 raise ValueError("Only two-fold splitting is supported for now!")
@@ -318,7 +318,7 @@ class FitHandler(Plotter, MariaSteering):
                 if k == 'combcf xi':
                     # broadcast previous fit results to new ones!
                     initial_pos[k] = jnp.empty( (self.n_sub, samples.pos['combcf xi'].shape[1]) )
-                    for i in range(self.n_sub): # TODO: vectorize
+                    for i in range(self.n_sub):
                         initial_pos[k] = initial_pos[k].at[i].set( samples.pos['combcf xi'][i//2] )
                 else:
                     initial_pos[k] = samples.pos[k]
