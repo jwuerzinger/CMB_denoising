@@ -1,0 +1,22 @@
+name: mustang
+maria_params:
+  scan_center: [150, 10]
+  map_filename: "maps/cluster.fits"
+  resolution: 8.714e-05
+  index: 0
+  width: null
+  scan_options:
+    radius: 0.05
+    speed: 0.01
+  duration: 600
+  sample_rate: 50
+  start_time: "2022-02-10T06:00:00"
+nifty_params:
+  noiseval: 2.5e-4
+  tod_offset : [1.0e-5, 0.99e-5]
+  tod_fluct : [0.0015, 0.0001]
+  tod_loglog : [-2.45, 0.1]
+  map_offset : [1.0e-8, 1.0e-7]
+  map_fluct : [5.6e-5, 1.0e-6]
+  map_loglog : [-2.5, 0.1]
+  downsampling_factor: 1

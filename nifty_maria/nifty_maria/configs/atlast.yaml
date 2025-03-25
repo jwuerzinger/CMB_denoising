@@ -1,0 +1,22 @@
+name: atlast
+maria_params:
+  scan_center: [300, -10]
+  map_filename: "maps/big_cluster.fits"
+  resolution: null
+  index: 1
+  width: 1.
+  scan_options:
+    radius: 0.25
+    speed: 0.5
+  duration: 60
+  sample_rate: 225
+  start_time: "2022-08-10T06:00:00"
+nifty_params:
+  noiseval: 0.00028
+  tod_offset : [5.0e-5, 1.0e-5]
+  tod_fluct : [0.113, 0.003]
+  tod_loglog : [-2.8, 0.2]
+  map_offset : [5.3e-7, 1.0e-7]
+  map_fluct : [6.1e-5, 1.0e-6]
+  map_loglog : [-3.6, 0.1]
+  downsampling_factor: 5

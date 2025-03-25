@@ -13,6 +13,7 @@ os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
 # Enable double precision in JAX:
 os.environ['JAX_ENABLE_X64'] = 'True' 
 
+import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -35,13 +36,17 @@ class FitHandler(Plotter, MariaSteering):
     Attributes:
         fit_map (bool): Perform fit of map if True.
         fit_atmos (bool): Perform fit of atmosphere if True.
-        config (str): The detector configuraion to run on. Options are: 'mustang', 'atlast'.
+        config (str): The detector configuraion to run on. The detector configuraion to run on. If 'mustang' or 'atlast' are supplied, will read corresponding default configutation yaml file. Otherwise, config yaml needs to be supplied directly.
         noiselevel (float): The fraction of noise to add.
+        confdict (dict): Dictionary with maria and GP steering parameters.
         plotsdir (str): Directory to save results in. Defaults to None, resulting in plt.show().
         key (KeyArray): Pseudo random number key for jax.
         nit_sl (int): Maximum number of linear sampling iterations per global iteration.
         nit_sn (int): Maximum number of nonlinear sampling iterations per global iteration.
         nit_m (int): Maximum number of minimisation iterations per global iteration.
+        downsampling_factor (int): Factor for downsampling atmosphere.
+        scan_center (tuple): Tuple with scan center coordinates.
+        
         input_map (Map): The input map of the sky to use in simulation.
         plan (Plan): The scanning pattern to simulate.
         instrument (Instrument): The detector used during simulation.
@@ -95,7 +100,7 @@ class FitHandler(Plotter, MariaSteering):
         Args:
             fit_map (bool, optional): Perform fit of map if True. Defaults to True.
             fit_atmos (bool, optional): Perform fit of atmosphere if True. Defaults to True.
-            config (str, optional): The detector configuraion to run on. Options are: 'mustang', 'atlast' and. Defaults to 'atlast'.
+            config (str, optional): The detector configuraion to run on. If 'mustang' or 'atlast' are supplied, will read corresponding default configutation yaml file. Otherwise, config yaml needs to be supplied directly. Defaults to 'atlast'.
             noiselevel (float, optional): The fraction of noise to add. Defaults to 1.0.
             plotsdir (str, optional): Directory to save results in. Defaults to None, resulting in plt.show().
             nit_sl (int, optional): Maximum number of linear sampling iterations per global iteration. Defaults to 2000.
@@ -106,10 +111,28 @@ class FitHandler(Plotter, MariaSteering):
             ValueError: If invalid configuration is used.
         """
         print("Initialising...")
-        super().__init__(fit_map=fit_map, fit_atmos=fit_atmos, config=config, noiselevel=noiselevel)
+        self.fit_map = fit_map
+        self.fit_atmos = fit_atmos
+        self.config = config
+        self.noiselevel = noiselevel
+        
+        # Read config file:
+        if config == 'mustang' or config == 'atlast':
+            base_dir = os.path.dirname(__file__)
+            full_path = os.path.join(base_dir, f"configs/{config}.yaml")
+            with open(full_path, "r") as file:
+                self.confdict = yaml.safe_load(file)
+        else:
+            with open(config, 'r') as file:
+                self.confdict = yaml.safe_load(file)
+        
         self.plotsdir = plotsdir
         
-        if self.plotsdir is not None: os.system(f"mkdir -p {self.plotsdir}")
+        if self.plotsdir is not None: 
+            os.system(f"mkdir -p {self.plotsdir}")
+            # Save yaml in plotsdir:
+            with open(f"{self.plotsdir}/config.yaml", "w") as file:
+                yaml.dump(self.confdict, file, default_flow_style=False)
         
         # jax init:
         seed = 42
@@ -119,10 +142,19 @@ class FitHandler(Plotter, MariaSteering):
         self.nit_sn = nit_sn
         self.nit_m = nit_m
         
-        if 'atlast' in config:
-            self.downsampling_factor = 5
-        else:
-            self.downsampling_factor = 1
+        nifty_params = self.confdict['nifty_params']
+        noiseval = nifty_params['noiseval']
+        print(f"Running with noise value: {noiseval}")
+       
+        self.params = nifty_params
+        # change lists to tuples:
+        for key, value in self.params.items():
+            if isinstance(value, list): self.params[key] = tuple(value)
+        self.params['noise'] = lambda x: noiseval**-2 * x
+        
+        self.downsampling_factor = nifty_params['downsampling_factor']
+            
+        super().__init__()
     
     def sample_jax_tods(self, use_truth_slope: bool = False) -> None:
         """

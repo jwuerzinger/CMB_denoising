@@ -10,105 +10,38 @@ import nifty_maria.mapsampling_jax
 
 class MariaSteering:
     """Subclass for steering maria code."""
-    def __init__(self, fit_map: bool, fit_atmos: bool, config: str, noiselevel: int) -> None:
+    def __init__(self) -> None:
         """
         Initialize the steering handler.
-        
-        Args:
-            fit_map (bool): Perform fit of map if True.
-            fit_atmos (bool): Perform fit of atmosphere if True.
-            config (str): The detector configuraion to run on. Options are: 'mustang' and 'atlast'.
-            noiselevel (float): The fraction of noise to add.
-        
-        Raises:
-            ValueError: If invalid configuration is used.
         """
-        self.config = config
-        self.fit_map = fit_map
-        self.fit_atmos = fit_atmos
-        self.noiselevel = noiselevel
         
-        if self.config == 'mustang':
-            self.scan_center = (150, 10)
-            map_filename = maria.io.fetch("maps/cluster.fits")
+        maria_params = self.confdict['maria_params']
+        self.scan_center = tuple(maria_params['scan_center'])
+        map_filename = maria.io.fetch(maria_params['map_filename'])
+        # load in the map from a fits file
+        self.input_map = maria.map.read_fits(filename=map_filename, #filename
+                                        resolution=maria_params['resolution'], #pixel size in degrees
+                                        width=maria_params['width'],
+                                        index=maria_params['index'], #index for fits file
+                                        center=self.scan_center, # position in the sky
+                                        units='Jy/pixel' # Units of the input map 
+                                    )
 
-            # load in the map from a fits file
-            self.input_map = maria.map.read_fits(filename=map_filename, #filename
-                                            resolution=8.714e-05, #pixel size in degrees
-                                            index=0, #index for fits file
-                                            center=self.scan_center, # position in the sky
-                                            units='Jy/pixel' # Units of the input map 
-                                        )
+        self.input_map.to(units="K_RJ").plot()
 
-            self.input_map.to(units="K_RJ").plot()
-            
-            #load the map into maria
-            self.plan = maria.get_plan(scan_pattern="daisy", # scanning pattern
-                                scan_options={"radius": 0.05, "speed": 0.01}, # in degrees
-                                duration=600, # integration time in seconds
-                                sample_rate=50, # in Hz
+        self.plan = maria.get_plan(scan_pattern="daisy", # scanning pattern
+                                scan_options=maria_params['scan_options'], # in degrees
+                                duration=maria_params['duration'], # integration time in seconds
+                                sample_rate=maria_params['sample_rate'], # in Hz
                                 scan_center=self.scan_center, # position in the sky
-                                frame="ra_dec")
+                                start_time=maria_params['start_time'],
+                                frame="ra_dec"
+                                )
 
-            self.plan.plot()
-            
-            self.instrument = nifty_maria.mapsampling_jax.instrument
-            self.instrument.plot()
-            
-            noiseval = 2.5e-4 if self.noiselevel == 1.0 else 1e-7
-            print(f"Running with noise value: {noiseval}")
-            self.params = { 
-                'tod_offset' : (1e-5, 0.99e-5),
-                'tod_fluct' : (0.0015, 0.0001),
-                'tod_loglog' : (-2.45, 0.1),
-                'map_offset' : (1e-8, 1e-7),
-                'map_fluct' : (5.6e-5, 1e-6),
-                'map_loglog' : (-2.5, 0.1),
-                # 'noise' : lambda x: 2.5e-4**-2 * x, # TODO: generalize!
-                'noise' : lambda x: noiseval**-2 * x,
-            }
-            
-        elif self.config == 'atlast':
-            self.scan_center = (300, -10)
-            map_filename = maria.io.fetch("maps/big_cluster.fits")
-            
-            self.input_map = maria.map.read_fits(filename=map_filename,
-                                width=1., #degrees
-                                index=1,
-                                center=self.scan_center, #RA and Dec in degrees
-                                units ='Jy/pixel'
-                               )
-            self.input_map.to(units="K_RJ").plot()
-            
-            # Default AtLAST plan: # TODO: make this work!
-            self.plan = maria.get_plan(scan_pattern="daisy",
-                      scan_options={"radius": 0.25, "speed": 0.5}, # in degrees
-                      duration=60, # in seconds
-                      sample_rate=225, # in Hz
-                      start_time = "2022-08-10T06:00:00",
-                      scan_center=self.scan_center,
-                      frame="ra_dec")
-            
-            self.plan.plot()
-
-            self.instrument = nifty_maria.mapsampling_jax.get_atlast()
-            self.instrument.plot()
-            
-            self.params = {
-                'tod_offset' : (5e-5, 1e-5),
-                'tod_fluct' : (0.113, 0.003),
-                'tod_loglog' : (-2.8, 0.2),
-                'map_offset' : (5.3e-7, 1e-7),
-                'map_fluct' : (6.1e-5, 1e-6),
-                'map_loglog' : (-3.6, 0.1),
-                # TODO: generalize!
-                'noise' : lambda x: 0.00028**-2 * x, # For 225 Hz
-                # 'noise' : lambda x: 1.9e-4**-2 * x, # For 100 Hz
-                # 'noise' : lambda x: 1.0e-4**-2 * x, # for 25Hz
-            }
-        
-        else:
-            raise ValueError("Unknown fit config!")
+        self.plan.plot()
+                
+        self.instrument = nifty_maria.mapsampling_jax.instrument
+        self.instrument.plot()
         
         return
     

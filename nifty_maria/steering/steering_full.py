@@ -8,7 +8,7 @@ from datetime import date
 import os
 
 @click.command(help=__doc__)
-@click.option('--config', default='atlast', help='Config for fit. Supported values are: atlast/mustang. Defaults to atlast.')
+@click.option('--config', default='atlast', help='Config for fit. Supported values are: "atlast", "mustang" or the path to a custom steering yaml. Defaults to atlast.')
 @click.option('--fit_atmos', default=True, type=bool, help='Boolean for fitting atmosphere. Defaults to True.')
 @click.option('--fit_map', default=True, type=bool, help='Boolean for fitting map. Defaults to True.')
 @click.option('--nit_glob', default=30, type=int, help='Number of global iterations. Defaults to 30.')
