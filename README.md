@@ -39,7 +39,8 @@ cd nifty_maria/steering
 python steering_full.py --config CONFIG --fit_atmos BOOL --fit_map BOOL
 ```
 
-Where `CONFIG` should be either `mustang` or `atlast` and `BOOL` is either `True` or `False`, depending on whether you want to fit the atmosphere/map. By default, a fit to simulated `mustang` data for both the map and atmosphere is performed.
+Where `CONFIG` should be either `mustang`, `atlast` or the path to a custom steering yaml file. The default yaml files for `mustang` and `atlast` are automatically read and can be found [here](nifty_maria/nifty_maria/configs/).
+The value for `BOOL` is either `True` or `False`, depending on whether you want to fit the atmosphere/map. By default, a fit to simulated `mustang` data for both the map and atmosphere is performed.
 
 This script starts with a reconstruction of two gaussian process-based correlated field models: One two-dimensional model for the map and one one-dimensional model for the atmosphere TOD directly. The array is then automatically split horizontally/vertically, thus doubling the numbers of modelled atmosphere TODs `n_sub` with every iterations, until `n_sub=64` for AtLAST and `n_sub=128` for MUSTANG-2. In the case of MUSTANG-2, a final step in the fit is performed where every detector's atmosphere TOD response is modelled individually.
 
