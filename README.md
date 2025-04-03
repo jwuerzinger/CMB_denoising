@@ -11,10 +11,15 @@ Don't hesitate to reach out to me directly or open an issue in case you spot any
 I will conserve my conda environment and supply automated installation instructions here, once the server lets me..
 Until then, please follow these manual instructions:
 
-The `maria` and `NIFTy` repos are both added as submodules to this repo. after cloning this repo with submodules with
+The `maria` and `NIFTy` repos are both added as submodules to this repo. After cloning this repo with submodules with
 ```bash
 git clone --recurse-submodules git@github.com:jwuerzinger/CMB_denoising.git
 ```
+if you're using ssh authentification or 
+```bash
+git clone --recurse-submodules https://github.com/jwuerzinger/CMB_denoising.git
+```
+if you want to authenticate with https.
 
 Install both submodules with
 ```bash
