@@ -16,6 +16,7 @@ dependencies = [
     "numpy",
     "jax[cuda12]",
     "scikit-image",
+    "importlib-metadata"
 ]
 classifiers = [
 "Development Status :: 3 - Alpha",
