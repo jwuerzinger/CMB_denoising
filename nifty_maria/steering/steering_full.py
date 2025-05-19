@@ -41,15 +41,18 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
     # Run Jax sampling & configure inputs for GP
     fit.sample_jax_tods(use_truth_slope=False)
 
-    if config == 'mustang': n_splits = list(range(8)) + [-1]
+    # if config == 'mustang': n_splits = list(range(8)) + [-1]
+    if config == 'mustang': n_splits = [-1]
     else: n_splits = list(range(7))
     print(f"Will run with n_splits: {n_splits}")
 
+    fit.init_gps(n_split=n_splits[0])
+    firstiter = True
     for i in n_splits:
         print(f"Fit iteration: i = {i}")
         
         # Initialise, use samples after 0th iter:
-        if i == 0: fit.init_gps(n_split=i)
+        if firstiter: firstiter = False
         else: fit.init_gps(n_split=i, samples=samples)
         fit.plot_subdets()
         
@@ -66,7 +69,7 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
         fit.plotpowerspectrum(samples)
         
         # Show reco comparison before expanding to full det:
-        fit.plotrecos(samples)
+        if fit_map: fit.plotrecos(samples)
 
         if config == 'mustang': fit.make_atmosphere_det_gif(samples, figname=f"mustang_{fit.n_sub}_atmosphere_comp.gif", tmax=1000)
         else: fit.make_atmosphere_det_gif(samples, figname=f"atlast_{fit.n_sub}_atmosphere_comp.gif", tmax=100)
