@@ -65,6 +65,8 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
         # Initialise, use samples after 0th iter:
         if firstiter: firstiter = False
         else: fit.init_gps(n_split=i, samples=samples)
+        fit.plotsdir = f"{plotsdir}/nsub_{fit.n_sub}"
+        os.makedirs(fit.plotsdir, exist_ok=True)
         fit.plot_subdets()
         
         # Show prior sample (only in 0th iter)
