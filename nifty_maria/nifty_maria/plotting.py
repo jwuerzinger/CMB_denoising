@@ -108,7 +108,7 @@ class Plotter:
         """
         cmb_cmap = plt.get_cmap('cmb')
         
-        res = self.signal_response_tod(samples.pos)
+        res = jft.mean(tuple(self.signal_response_tod(s) for s in samples))
         n = self.noised_jax_tod.shape[0]
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
@@ -134,9 +134,9 @@ class Plotter:
         if self.fit_map: 
             # plot maximum of posterior (mode)
             if self.padding_map > 0:
-                sig_map = self.gp_map(samples.pos)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] # when splitting up in different field models
+                sig_map = jft.mean(tuple(self.gp_map(s)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in samples))
             else:
-                sig_map = self.gp_map(samples.pos)
+                sig_map = jft.mean(tuple(self.gp_map(s) for s in samples))
 
             fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
@@ -169,15 +169,15 @@ class Plotter:
 
         colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
 
-        components = [self.signal_response_tod(samples.pos)]
+        components = [jft.mean(tuple(self.signal_response_tod(s) for s in samples))]
         labels = ['pred. total']
         linestyles = ['-']
 
         if self.fit_map:
             if self.padding_map > 0:
-                gp_map_nopad = jnp.broadcast_to(self.gp_map(samples.pos), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+                gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
             else:
-                gp_map_nopad = jnp.broadcast_to(self.gp_map(samples.pos), (1, 1, self.dims_map[0], self.dims_map[1]))
+                gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))
 
             res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
             
@@ -187,9 +187,14 @@ class Plotter:
 
         if self.fit_atmos:
             
-            x_tod = {k: samples.pos[k] for k in samples.pos if 'comb' in k}
-            res_tods = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
-            res_tods = jnp.repeat(res_tods, self.downsampling_factor)[None, :]
+            res_tods = ()
+            for s in samples:
+                x_tod = {k: s[k] for k in s if 'comb' in k}
+                res_tod = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
+                res_tod = jnp.repeat(res_tod, self.downsampling_factor)[None, :]
+                res_tods += (res_tod,)
+                
+            res_tods = jft.mean(res_tods)
             
             components += [res_tods, self.tod_truthmap.get_field('atmosphere')]
             labels += ['pred. atmos', 'true atmos']
@@ -244,9 +249,9 @@ class Plotter:
 
         # Compare nifty vs maria
         if self.padding_map > 0:
-            sig_map = self.gp_map(samples.pos)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] # when splitting up in different field models
+            sig_map = jft.mean(tuple(self.gp_map(s)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in samples)) # when splitting up in different field models
         else:
-            sig_map = self.gp_map(samples.pos)
+            sig_map = jft.mean(tuple(self.gp_map(s) for s in samples))
 
         # mincol = -0.0012
         # maxcol = 0.
@@ -357,9 +362,13 @@ class Plotter:
         from maria.units import Angle
 
         cmb_cmap = plt.get_cmap('cmb')
-
-        x_tod = {k: samples.pos[k] for k in samples.pos if 'comb' in k}
-        best_fit_atmos = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
+        
+        best_fit_atmos = ()
+        for s in samples:
+            x_tod = {k: s[k] for k in s if 'comb' in k}
+            best_fit_atmos += (self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2], )
+            
+        best_fit_atmos = jft.mean(best_fit_atmos)
 
         test = Angle(self.instrument.dets.offsets)
         pos = getattr(test, test.units).T
