@@ -22,7 +22,6 @@ import jax
 import jax.random as random
 
 from nifty_maria.mapsampling_jax import sample_maps
-from nifty_maria.modified_CFM import CFM
 from nifty_maria.plotting import Plotter
 from nifty_maria.maria_steering import MariaSteering
 
@@ -381,16 +380,19 @@ class FitHandler(Plotter, MariaSteering):
             )
 
             # put together in custom correlated field model
-            cfm_tod = CFM("combcf ")
+            cfm_tod = jft.CorrelatedFieldMaker("combcf ")
             cfm_tod.set_amplitude_total_offset(**self.cf_zm_tod)
             cfm_tod.add_fluctuations(
                 self.dims_atmos, distances=1.0 / self.dims_atmos[0], **self.cf_fl_tod, prefix="tod ", non_parametric_kind="power"
             )
+            gp_tod = cfm_tod.finalize()
 
-            if self.n_sub == -1: self.gp_tod = cfm_tod.finalize(self.instrument.n_dets)
+            if self.n_sub == -1: n_tod = self.instrument.n_dets
             else: 
                 if self.n_sub > self.instrument.n_dets: raise ValueError(f"ERROR: self.n_sub = {self.n_sub} is not allowed to be larger than self.instrument.n_dets = {self.instrument.n_dets}!")
-                self.gp_tod = cfm_tod.finalize(self.n_sub)
+                n_tod = self.n_sub
+
+                self.gp_tod = jft.VModel(gp_tod, n_tod, in_axes='combcf xi')
             
             print("Initialised gp_tod:", self.gp_tod)
         
@@ -544,7 +546,8 @@ class FitHandler(Plotter, MariaSteering):
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),
-            callback=self.callback if fit_type != 'map' else None
+            callback=self.callback if fit_type != 'map' else None,
+            odir=self.plotsdir, # output directory
         )
         
         return samples, state
