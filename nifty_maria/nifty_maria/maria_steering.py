@@ -44,8 +44,7 @@ class MariaSteering:
         # self.instrument = nifty_maria.mapsampling_jax.instrument
         # self.instrument = maria.get_instrument('MUSTANG-2')
         self.instrument = self.get_instrument()
-        self.instrument.plot()
-        
+        self.instrument.plot()    
         return
     
     def get_instrument(self) -> maria.Instrument:
@@ -58,12 +57,15 @@ class MariaSteering:
     
     def get_atlast(self):
     
-        f090 = Band(center=91.5e9, # in Hz
-                    width=51e9,
-                    knee=1,
-                    NET_RJ=266e-6)
+        f090 = Band(center=self.maria_params['nu'], # in Hz
+                    width=self.maria_params['nu_width'],
+                    NET_RJ=self.maria_params['nu_width'])
 
-        array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
+        array = {"field_of_view": self.maria_params['field_of_view'], 
+                 "bands": [f090], 
+                 "primary_size": 50, 
+                 "beam_spacing": self.maria_params['beam_spacing'],  
+                 "shape": "circle"} # AtLAST
 
         # global instrument
         # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
@@ -184,8 +186,8 @@ class MariaSteering:
                     tod_preprocessing={
                             # "window": {"name": "hamming"},
                             "window": {"name": "tukey", "kwargs": {"alpha": 0.1}},
+                            "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
                             "remove_modes": {"modes_to_remove": [0]},
-                            "remove_spline": {"knot_spacing": 5},
                         },
                         map_postprocessing={
                             "gaussian_filter": {"sigma": 1},
