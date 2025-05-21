@@ -5,6 +5,10 @@ Module collecting loose set of jax-ified and jit-ed mapsampling functions.
 import jax
 import numpy as np
 
+from maria.constants import k_B
+from maria import beam
+import maria
+
 # jax compatible rewrite if beams.separably_filter
 @jax.jit
 def separably_filter_2d(data, F, tol=1e-2, return_filter=False):
@@ -64,10 +68,6 @@ def construct_beam_filter(fwhm, res, buffer=1):
 
     return F / F.sum()
 
-from maria.units.constants import k_B
-from maria.instrument import beam
-import maria
-
 instrument = maria.get_instrument('MUSTANG-2')
 
 from maria.instrument import Band
@@ -119,62 +119,28 @@ def get_dummy():
 
     return instrument
 
+# def sample_maps(sim_truthmap, dx, dy, resolution, x_side, y_side):
 @jax.jit
-def sample_maps(sim_truthmap, dx, dy, resolution, x_side, y_side):
+def sample_maps(sim_truthmap, offsets, resolution, x_side, y_side, pW_per_K_RJ):
 
-    data_map = jax.numpy.array(1e-16 * np.random.standard_normal(size=dx.shape))
+    sim_truthmap = sim_truthmap[0, 0, :]
+    # data_map = jax.numpy.array(1e-16 * np.random.standard_normal(size=offsets.shape[:-1]))
     pbar = instrument.bands
 
     for band in pbar:
         band_mask = instrument.dets.band_name == band.name
 
-        nu = jax.numpy.linspace(band.nu_min, band.nu_max, 64)
-
-        TRJ = jax.scipy.interpolate.RegularGridInterpolator(
-            (jax.numpy.array([100.]),),
-            sim_truthmap,
-            fill_value=None,
+        samples_K_RJ = jax.scipy.interpolate.RegularGridInterpolator(
+            (y_side[::-1], x_side),
+            sim_truthmap[::-1],
             bounds_error=False,
-            method='nearest',
-        )(nu)
+            fill_value=0,
+            method="nearest",
+        )((offsets[band_mask, ..., 0], offsets[band_mask, ..., 1]))
 
-        TRJ = jax.numpy.reshape(TRJ, (TRJ.shape[1], TRJ.shape[0], TRJ.shape[2], TRJ.shape[3]))
-        nu_passband = jax.numpy.exp(jax.numpy.log(0.5) * (2 * (nu - 90.) / 30.) ** 2)
+        loading = pW_per_K_RJ * samples_K_RJ
+        # print("MARKER")
+        # print(loading)
+        # print(loading.shape)
 
-        power_map = (
-            1e12
-            * k_B
-            * jax.numpy.trapezoid(nu_passband[:, None, None] * TRJ, axis=1, x=1e9 * nu)
-        )
-
-        # nu is in GHz, f is in Hz
-        nu_fwhm = beam.compute_angular_fwhm(
-            # fwhm_0=sim_truthmap.instrument.dets.primary_size.mean(),
-            fwhm_0=instrument.dets.primary_size.mean(),
-            z=np.inf,
-            # f=1e9 * band.center,
-            nu = band.center
-        ) 
-        
-        nu_map_filter = construct_beam_filter(fwhm=nu_fwhm, res=resolution)
-        filtered_power_map = separably_filter_2d(power_map, nu_map_filter)
-
-        # assume no time-dim for now. TODO: Add time dim!
-        map_power = jax.scipy.interpolate.RegularGridInterpolator(
-            # Need to invert x_side and y_side for jax interpolation:
-            # (jax.numpy.flip(x_side), jax.numpy.flip(y_side)), # length N=2 sequence of arrays with grid coords
-            # jax.numpy.flip(filtered_power_map), # N=2-dimensional array specifying grid values (1000, 1000)
-            (x_side, y_side), # length N=2 sequence of arrays with grid coords
-            filtered_power_map[0], # N=2-dimensional array specifying grid values (1000, 1000)
-            fill_value=0.,
-            bounds_error=False,
-            method="linear",
-        )((jax.numpy.array(dx[band_mask]), jax.numpy.array(dy[band_mask])))
-
-        # jax.debug.print("Total map power: {pwr}", pwr=map_power.sum())
-
-        # data["map"][band_mask] += map_power
-        data_map = data_map.at[band_mask].add(map_power)
-        
-    # return sim_truthmap.data["map"]
-    return data_map
+    return loading

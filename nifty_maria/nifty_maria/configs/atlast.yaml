@@ -1,6 +1,6 @@
 name: atlast
 maria_params:
-  scan_center: [300, -10]
+  scan_center: [291.156, -31.23]
   map_filename: "maps/big_cluster.fits"
   resolution: null
   index: 1

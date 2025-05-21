@@ -4,7 +4,7 @@ maria_params:
   map_filename: "maps/cluster.fits"
   resolution: 8.714e-05
   index: 0
-  width: null
+  width: 0.0833
   scan_options:
     radius: 0.05
     speed: 0.01

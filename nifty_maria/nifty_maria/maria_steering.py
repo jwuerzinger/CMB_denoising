@@ -5,6 +5,7 @@ Module to collect maria steering configs and code.
 import numpy as np
 import maria
 import matplotlib.pyplot as plt
+from maria.constants import k_B
 
 import nifty_maria.mapsampling_jax
 
@@ -16,13 +17,14 @@ class MariaSteering:
         """
         
         maria_params = self.confdict['maria_params']
+        self.maria_params = maria_params
         self.scan_center = tuple(maria_params['scan_center'])
         map_filename = maria.io.fetch(maria_params['map_filename'])
         # load in the map from a fits file
-        self.input_map = maria.map.read_fits(filename=map_filename, #filename
+        self.input_map = maria.map.load(filename=map_filename, #filename
                                         resolution=maria_params['resolution'], #pixel size in degrees
                                         width=maria_params['width'],
-                                        index=maria_params['index'], #index for fits file
+                                        # index=maria_params['index'], #index for fits file
                                         center=self.scan_center, # position in the sky
                                         units='Jy/pixel' # Units of the input map 
                                     )
@@ -41,9 +43,19 @@ class MariaSteering:
         self.plan.plot()
                 
         self.instrument = nifty_maria.mapsampling_jax.instrument
+        # self.instrument = maria.get_instrument('MUSTANG-2')
+        # self.instrument = self.get_instrument()
         self.instrument.plot()
         
         return
+    
+    # def get_instrument(self) -> maria.Instrument:
+    #     """
+    #     Retrieves instrument object. Either AtLAST or MUSTANG-2 for now. Custom objects to be added later.
+    #     """
+        
+    #     if self.config == 'mustang': return maria.get_instrument('MUSTANG-2')
+    #     elif self.config == 'atlast': 
     
     def simulate(self) -> None:
         """
@@ -70,9 +82,23 @@ class MariaSteering:
         # Plot TODs:
         self.tod_truthmap.plot()
         
-        dx, dy = self.sim_truthmap.coords.offsets(frame=self.sim_truthmap.map.frame, center=self.sim_truthmap.map.center)
-        self.dx = dx.compute()
-        self.dy = dy.compute()
+        # dx, dy = self.sim_truthmap.coords.offsets(frame=self.sim_truthmap.map.frame, center=self.sim_truthmap.map.center).T
+        self.offsets = self.sim_truthmap.coords.offsets(frame=self.sim_truthmap.map.frame, center=self.sim_truthmap.map.center)
+        
+        
+        spectrum_kwargs = {
+                "spectrum": self.sim_truthmap.atmosphere.spectrum,
+                "zenith_pwv": self.sim_truthmap.atmosphere.weather.pwv,
+                "base_temperature": self.sim_truthmap.atmosphere.weather.temperature[0],
+                "elevation": self.sim_truthmap.coords.el
+        }
+        
+        band = self.instrument.bands[0] # TODO: should actually vmap over bands!
+        self.pW_per_K_RJ = 1e12 * k_B * band.compute_nu_integral(**spectrum_kwargs)
+        # self.dx = dx
+        # self.dy = dy
+        
+        
         
         return 
     
@@ -126,30 +152,31 @@ class MariaSteering:
         if self.config == 'mustang':
             mapper = BinMapper(self.scan_center,
                     frame="ra_dec",
-                    width=0.1,
+                    width=self.maria_params['width'],
                     height=0.1,
                     resolution=2e-4,
                     tod_preprocessing={
                             "window": {"name": "hamming"},
                             "remove_modes": {"modes_to_remove": [0]},
-                            "despline": {"knot_spacing": 10},
+                            "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
                         },
                         map_postprocessing={
                             "gaussian_filter": {"sigma": 1},
                             "median_filter": {"size": 1},
                         },
+                        units = "uK_RJ",
                     )
         elif self.config == 'atlast': # TODO: optimise!
             mapper = BinMapper(self.scan_center,
                     frame="ra_dec",
-                    width=1.,
+                    width=self.maria_params['width'],
                     height=1.,
                     resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
                     tod_preprocessing={
                             # "window": {"name": "hamming"},
                             "window": {"name": "tukey", "kwargs": {"alpha": 0.1}},
                             "remove_modes": {"modes_to_remove": [0]},
-                            "despline": {"knot_spacing": 5},
+                            "remove_spline": {"knot_spacing": 5},
                         },
                         map_postprocessing={
                             "gaussian_filter": {"sigma": 1},
