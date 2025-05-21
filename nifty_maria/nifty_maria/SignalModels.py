@@ -138,12 +138,13 @@ class Signal_TOD_general(jft.Model):
         print(res_tods.shape)
 
         res_tods = res_tods[:, self.padding_atmos//2:-self.padding_atmos//2]
+        print(res_tods.shape)
         
         # sum over masklist and multiply with res_dots using einsum:
         res_tods_fulldet = jnp.einsum("ai,aj->ij", self.masklist, res_tods)
+        print(self.masklist.shape)
 
         # Correct (upsampled) tods by offset and slope
-        print("MARKER2:")
         print(res_tods_fulldet.shape)
         print(self.downsampling_factor)
         print(self.slopes_truth.shape)
