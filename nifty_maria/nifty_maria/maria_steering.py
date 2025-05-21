@@ -21,11 +21,11 @@ class MariaSteering:
         map_filename = maria.io.fetch(maria_params['map_filename'])
         # load in the map from a fits file
         self.input_map = maria.map.load(filename=map_filename, #filename
+                                        nu = maria_params['nu']
                                         resolution=maria_params['resolution'], #pixel size in degrees
                                         width=maria_params['width'],
-                                        # index=maria_params['index'], #index for fits file
                                         center=self.scan_center, # position in the sky
-                                        units='Jy/pixel' # Units of the input map 
+                                        units=maria_params['units'] # Units of the input map 
                                     )
 
         self.input_map.to(units="K_RJ").plot()
@@ -71,6 +71,7 @@ class MariaSteering:
 
         return instrument
     
+    
     def simulate(self) -> None:
         """
         Performs maria simulation and decorates self with simulation parameters.
@@ -84,21 +85,16 @@ class MariaSteering:
         self.sim_truthmap = maria.Simulation(
             self.instrument, 
             plan=self.plan,
-            site="llano_de_chajnantor", # green_bank
+            site= self.maria_params['site'],
             map=self.input_map,
-            # noise=False,
             atmosphere="2d",
-            # cmb="generate",
         )
 
         self.tod_truthmap = self.sim_truthmap.run()
         
         # Plot TODs:
         self.tod_truthmap.plot()
-        
-        # dx, dy = self.sim_truthmap.coords.offsets(frame=self.sim_truthmap.map.frame, center=self.sim_truthmap.map.center).T
         self.offsets = self.sim_truthmap.coords.offsets(frame=self.sim_truthmap.map.frame, center=self.sim_truthmap.map.center)
-        
         
         spectrum_kwargs = {
                 "spectrum": self.sim_truthmap.atmosphere.spectrum,
@@ -109,10 +105,6 @@ class MariaSteering:
         
         band = self.instrument.bands[0] # TODO: should actually vmap over bands!
         self.pW_per_K_RJ = 1e12 * k_B * band.compute_nu_integral(**spectrum_kwargs)
-        # self.dx = dx
-        # self.dy = dy
-        
-        
         
         return 
     
@@ -130,7 +122,6 @@ class MariaSteering:
         cmb_cmap = plt.get_cmap('cmb')
         
         mapper_truthmap = BinMapper(
-            # center=(300.0, -10.0),
             center=self.scan_center,
             frame="ra_dec",
             width= 0.1 if self.config == 'mustang' else 1.,
