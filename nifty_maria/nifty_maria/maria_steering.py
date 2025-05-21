@@ -51,8 +51,11 @@ class MariaSteering:
     
     # def get_instrument(self) -> maria.Instrument:
     #     """
-    #     Retrieves intrument object 
+    #     Retrieves instrument object. Either AtLAST or MUSTANG-2 for now. Custom objects to be added later.
     #     """
+        
+    #     if self.config == 'mustang': return maria.get_instrument('MUSTANG-2')
+    #     elif self.config == 'atlast': 
     
     def simulate(self) -> None:
         """
