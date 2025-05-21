@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
+from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 from nifty_maria.mapsampling_jax import sample_maps
 
@@ -153,6 +154,66 @@ class Plotter:
             if self.plotsdir is None: plt.show()
             else:
                 plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_mapagreement_final.png")
+                plt.close()
+        
+        return 
+    
+    def plotsamples(self, samples: jft.evi.Samples) -> None:
+        """
+        Plots samples of the optimised GP
+        
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+        """
+        fig, axes = plt.subplots(3, 1, figsize=(16, 8))
+
+        for k in range(0, 3):
+            idxk = np.random.randint(0, self.noised_jax_tod.shape[0])
+            todk = []
+            for i in range(len(samples)):
+                ti = self.signal_response_tod(samples[i])
+                axes[k].plot(np.arange(0, ti.shape[1]), ti[idxk], label=f"tod {idxk} - sample {i}", c='gray')
+                todk.append(ti)
+
+            tmean = jft.mean(todk)
+            axes[k].plot(np.arange(0, tmean.shape[1]), tmean[idxk], label=f"tod {idxk} - mean", c='red')
+
+            axes[k].title.set_text(f'tod {idxk} - samples and mean')
+            axes[k].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+
+        fig.suptitle(f"n_sub = {self.n_sub}")
+
+        if self.plotsdir is None: plt.show()
+        else:
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_samples_tod.png")
+            plt.close()
+
+        if self.fit_map: 
+            cmb_cmap = plt.get_cmap('cmb')
+
+            fig, axes = plt.subplots(1, len(samples), figsize=(16, 8))
+
+            sig_maps = tuple(self.gp_map(s) for s in samples)
+            if self.padding_map > 0:
+                sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
+            
+            vmin = min(s.min() for s in sig_maps)
+            vmax = max(s.max() for s in sig_maps)
+
+            for i,s in enumerate(sig_maps):
+                im = axes[i].imshow(s, cmap=cmb_cmap, vmin=vmin, vmax=vmax)
+                axes[i].title.set_text(f'signal map - sample {i}')
+
+                div = make_axes_locatable(axes[i])
+                cax = div.append_axes('right', size='3%', pad='2%')
+                fig.colorbar(im, cax)
+
+            fig.tight_layout()
+            fig.suptitle(f"n_sub = {self.n_sub}")
+
+            if self.plotsdir is None: plt.show()
+            else:
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_samples_map.png")
                 plt.close()
         
         return 

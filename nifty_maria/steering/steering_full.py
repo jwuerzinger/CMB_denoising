@@ -77,6 +77,7 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
         else: samples, state = fit.perform_fit(nit_glob=nit_glob, printevery=printevery)
         
         # Show results:
+        fit.plotsamples(samples)
         fit.printfitresults(samples)
         fit.plotfitresults(samples)
         fit.plotpowerspectrum(samples)
