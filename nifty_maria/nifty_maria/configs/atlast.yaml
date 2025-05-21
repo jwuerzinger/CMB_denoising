@@ -4,8 +4,8 @@ maria_params:
   map_filename: "maps/big_cluster.fits"
   site: 'llano_de_chajnantor'
   resolution: null
-  nu: 91.5e9
-  nu_width: 51e9
+  nu: 91.5e+9
+  nu_width: 51e+9
   NET_RJ: 266e-6
   width: 1.
   scan_options:

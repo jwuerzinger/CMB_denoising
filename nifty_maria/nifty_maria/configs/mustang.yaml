@@ -1,17 +1,18 @@
 name: mustang
 maria_params:
   scan_center: [144, 12]
-  map_filename: "maps/cluster.fits"
+  map_filename: "maps/small_cluster.h5"
   site: 'green_bank'
   resolution: 8.714e-05
-  nu: 930e9
+  nu: 93.0e+9
   width: 0.08714
   scan_options:
     radius: 0.0333
     speed: 0.008333
-  duration: 1200
+  # duration: 1200
+  duration: 600
   sample_rate: 50
-  start_time: null
+  start_time: '2024-02-10T06:00:00.000'
   units: Jy/pixel
 nifty_params:
   noiseval: 2.5e-4
