@@ -77,14 +77,7 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
         else: samples, state = fit.perform_fit(nit_glob=nit_glob, printevery=printevery)
         
         # Show results:
-        fit.plotpullplot(samples)
-        fit.plotsamples(samples)
-        fit.printfitresults(samples)
-        fit.plotfitresults(samples)
-        fit.plotpowerspectrum(samples)
-        
-        # Show reco comparison before expanding to full det:
-        if fit_map: fit.plotrecos(samples)
+        fit.plot_results(samples)
 
         if config == 'mustang': fit.make_atmosphere_det_gif(samples, figname=f"mustang_{fit.n_sub}_atmosphere_comp.gif", tmax=1000)
         else: fit.make_atmosphere_det_gif(samples, figname=f"atlast_{fit.n_sub}_atmosphere_comp.gif", tmax=1000)
