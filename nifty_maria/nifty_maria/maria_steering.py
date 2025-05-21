@@ -20,11 +20,13 @@ class MariaSteering:
         self.scan_center = tuple(maria_params['scan_center'])
         map_filename = maria.io.fetch(maria_params['map_filename'])
         # load in the map from a fits file
+        
         self.input_map = maria.map.load(filename=map_filename, #filename
                                         nu = maria_params['nu'],
                                         resolution=maria_params['resolution'], #pixel size in degrees
                                         width=maria_params['width'],
                                         center=self.scan_center, # position in the sky
+                                        frame="ra_dec",
                                         units=maria_params['units'] # Units of the input map 
                                     )
 
@@ -59,7 +61,7 @@ class MariaSteering:
     
         f090 = Band(center=self.maria_params['nu'], # in Hz
                     width=self.maria_params['nu_width'],
-                    NET_RJ=self.maria_params['nu_width'])
+                    NET_RJ=self.maria_params['NET_RJ'])
 
         array = {"field_of_view": self.maria_params['field_of_view'], 
                  "bands": [f090], 
@@ -119,22 +121,22 @@ class MariaSteering:
             mapdata_truth (array): Array with true simulated map. Added by FitHandler.reco_maria().
             output_map (Map): Map opbject obtained by reconstruction with postprocessing. Added by FitHandler.reco_maria().
         """
-        from maria.mappers import BinMapper, BaseMapper
+        from maria.mappers import BinMapper
 
         cmb_cmap = plt.get_cmap('cmb')
         
-        mapper_truthmap = BaseMapper(
-            center=self.scan_center,
-            frame="ra_dec",
-            # width= 0.1 if self.config == 'mustang' else 1.,
-            width = self.maria_params['width'],
-            # height= 0.1 if self.config == 'mustang' else 1.,
-            height = self.maria_params['width'],
-            resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
-            map_postprocessing={"gaussian_filter": {"sigma": 1} }
-        )
-        mapper_truthmap.add_tods(self.tod_truthmap)
-        self.output_truthmap = mapper_truthmap.run()
+        # mapper_truthmap = BinMapper(
+        #     center=self.scan_center,
+        #     frame="ra_dec",
+        #     # width= 0.1 if self.config == 'mustang' else 1.,
+        #     width = self.maria_params['width'],
+        #     # height= 0.1 if self.config == 'mustang' else 1.,
+        #     height = self.maria_params['width'],
+        #     resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
+        #     map_postprocessing={"gaussian_filter": {"sigma": 1} }
+        # )
+        # mapper_truthmap.add_tods(self.tod_truthmap)
+        # self.output_truthmap = mapper_truthmap.run()
 
         mapdata_truth = np.float64(self.sim_truthmap.map.data)
         self.mapdata_truth = np.nan_to_num(mapdata_truth, nan=np.nanmean(mapdata_truth)) # replace nan value by img mean
@@ -142,20 +144,20 @@ class MariaSteering:
         print("mapdata_truth shape:", self.mapdata_truth.shape)
         print("mapdata_truth mean:", self.mapdata_truth.mean())
 
-        fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+        # fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
-        im0 = axes[0].imshow(self.output_truthmap.data[0].T, cmap=cmb_cmap)
-        fig.colorbar(im0)
-        axes[0].title.set_text("Noisy image (Mapper output)")
+        # im0 = axes[0].imshow(self.output_truthmap.data[0].T, cmap=cmb_cmap)
+        # fig.colorbar(im0)
+        # axes[0].title.set_text("Noisy image (Mapper output)")
 
-        im1 = axes[1].imshow(self.mapdata_truth[0,0], cmap=cmb_cmap)
-        fig.colorbar(im1)
-        axes[1].title.set_text("True Image")
+        # im1 = axes[1].imshow(self.mapdata_truth[0,0], cmap=cmb_cmap)
+        # fig.colorbar(im1)
+        # axes[1].title.set_text("True Image")
 
-        if self.plotsdir is None: plt.show()
-        else: 
-            plt.savefig(f"{self.plotsdir}/reco_maria.png")
-            plt.close()
+        # if self.plotsdir is None: plt.show()
+        # else: 
+        #     plt.savefig(f"{self.plotsdir}/reco_maria.png")
+        #     plt.close()
         
         # Run proper mapmaker TODO: customize per fit
         if self.config == 'mustang':
@@ -178,7 +180,7 @@ class MariaSteering:
                     units = "uK_RJ",
                     )
         elif self.config == 'atlast': # TODO: optimise!
-            mapper = BinMapper(self.scasn_center,
+            mapper = BinMapper(self.scan_center,
                     frame="ra_dec",
                     width=self.maria_params['width'],
                     height=self.maria_params['width'],
@@ -199,6 +201,6 @@ class MariaSteering:
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
-        self.output_map.plot()
+        self.output_map.plot(filepath=f"{self.plotsdir}/reco_maria.png")
         
         return
