@@ -3,7 +3,6 @@ maria_params:
   scan_center: [291.156, -31.23]
   map_filename: "maps/big_cluster.fits"
   resolution: null
-  index: 1
   width: 1.
   scan_options:
     radius: 0.25

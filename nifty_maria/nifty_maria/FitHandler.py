@@ -174,7 +174,7 @@ class FitHandler(Plotter, MariaSteering):
         
         # Sample map with jax function and plot comparison
         # self.jax_tods_map = sample_maps(self.mapdata_truth, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
-        self.jax_tods_map = sample_maps(self.mapdata_truth, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
+        self.jax_tods_map = sample_maps(self.mapdata_truth, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
@@ -435,7 +435,7 @@ class FitHandler(Plotter, MariaSteering):
         if self.n_sub >= 1:
             if self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_general")
-                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.offsets, self.downsampling_factor, self.pW_per_K_RJ)
+                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.instrument, self.offsets, self.downsampling_factor, self.pW_per_K_RJ)
             elif self.fit_atmos and not self.fit_map:
                 print("Initialising: Signal_TOD_atmos")
                 self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, self.downsampling_factor)
@@ -444,10 +444,10 @@ class FitHandler(Plotter, MariaSteering):
         elif self.n_sub == -1:
             if self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_alldets")
-                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.offsets, self.downsampling_factor, self.pW_per_K_RJ)
+                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.instrument, self.offsets, self.downsampling_factor, self.pW_per_K_RJ)
             elif not self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_alldets_maponly")
-                self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.offsets, self.pW_per_K_RJ)
+                self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.instrument, self.offsets, self.pW_per_K_RJ)
             else:
                 raise ValueError("Config not supported!")
         else:
