@@ -179,9 +179,10 @@ class Plotter:
             else:
                 gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))
 
-            res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+            # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+            res_map = sample_maps(gp_map_nopad, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
             
-            components += [res_map, self.tod_truthmap.get_field('map')]
+            components += [res_map, self.tod_truthmap.data['map']]
             labels += ['pred. map', 'true map']
             linestyles += ['-', '--']
 
@@ -196,7 +197,7 @@ class Plotter:
                 
             res_tods = jft.mean(res_tods)
             
-            components += [res_tods, self.tod_truthmap.get_field('atmosphere')]
+            components += [res_tods, self.tod_truthmap.data['atmosphere']]
             labels += ['pred. atmos', 'true atmos']
             linestyles += ['-', '--']
 
@@ -458,7 +459,7 @@ class Plotter:
         for ia, array in enumerate(self.instrument.arrays):
             array_mask = self.instrument.dets.array_name == array.name
 
-            for ib, band in enumerate(array.dets.bands):
+            for ib, band in enumerate(array.bands):
                 band_mask = self.instrument.dets.band_name == band.name
                 mask = array_mask & band_mask
 

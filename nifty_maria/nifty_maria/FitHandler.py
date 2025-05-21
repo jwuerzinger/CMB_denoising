@@ -174,7 +174,8 @@ class FitHandler(Plotter, MariaSteering):
         """
         
         # Sample map with jax function and plot comparison
-        self.jax_tods_map = sample_maps(self.mapdata_truth, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+        # self.jax_tods_map = sample_maps(self.mapdata_truth, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+        self.jax_tods_map = sample_maps(self.mapdata_truth, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
@@ -182,7 +183,7 @@ class FitHandler(Plotter, MariaSteering):
         for i in range(0, n, n//10 if n//10 != 0 else 1):
             im0 = axes[0].plot(self.jax_tods_map[i], label=i)
 
-            tods_map = np.float64(self.tod_truthmap.get_field('map').compute())
+            tods_map = np.float64(self.tod_truthmap.data['map'].compute())
             im1 = axes[1].plot(tods_map[i], label=i)
 
             im2 = axes[2].plot(self.jax_tods_map[i] - tods_map[i], label=i)
@@ -199,11 +200,11 @@ class FitHandler(Plotter, MariaSteering):
             plt.savefig(f"{self.plotsdir}/jax_map_agreement.png")
             plt.close()
 
-        self.jax_tods_atmos = self.tod_truthmap.get_field('atmosphere')
+        self.jax_tods_atmos = self.tod_truthmap.data['atmosphere']
         # noised_jax_tod = np.float64(jax_tods_map) + np.float64(jax_tods_atmos) + np.float64(tod_truthmap.components['noise']*noiselevel)
 
         # Map + atmos
-        self.noised_jax_tod = np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)
+        self.noised_jax_tod = np.float64(self.tod_truthmap.data['noise']*self.noiselevel)
         if self.fit_atmos:
             self.noised_jax_tod += np.float64(self.jax_tods_atmos)
         if self.fit_map:
@@ -212,13 +213,13 @@ class FitHandler(Plotter, MariaSteering):
         # In atmos-only fit: only consider 0th TOD:
         if self.fit_atmos and not self.fit_map:
             print("Only considering 0th TOD!")
-            self.noised_jax_tod = np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)[0] + np.float64(self.jax_tods_atmos)[0]
+            self.noised_jax_tod = np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0] + np.float64(self.jax_tods_atmos)[0]
             self.noised_jax_tod = self.noised_jax_tod[None, :]
         
-            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)[0]
+            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0]
         
         else:
-            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.get_field('noise')*self.noiselevel)
+            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)
 
         slopes_tod_truth = (self.jax_tods_atmos) / (self.jax_tods_atmos[0])
         slopes_tod_truth = np.float64(slopes_tod_truth.mean(axis=1))
@@ -242,7 +243,7 @@ class FitHandler(Plotter, MariaSteering):
         # Get simplified atmosphere tods for validation
         self.atmos_tod_simplified = (self.jax_tods_atmos - self.offset_tod[:, None])/self.slopes_tod[:, None]
 
-        print("Noise stddev:", np.std(self.tod_truthmap.get_field('noise').compute()))
+        print("Noise stddev:", np.std(self.tod_truthmap.data['noise'].compute()))
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
@@ -432,7 +433,7 @@ class FitHandler(Plotter, MariaSteering):
         if self.n_sub >= 1:
             if self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_general")
-                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.dx, self.dy, self.downsampling_factor)
+                self.signal_response_tod = Signal_TOD_general(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.masklist, self.sim_truthmap, self.offsets, self.downsampling_factor, self.pW_per_K_RJ)
             elif self.fit_atmos and not self.fit_map:
                 print("Initialising: Signal_TOD_atmos")
                 self.signal_response_tod = Signal_TOD_atmos(self.gp_tod, self.offset_tod, self.slopes_tod, self.dims_atmos, self.padding_atmos, self.downsampling_factor)
@@ -441,10 +442,10 @@ class FitHandler(Plotter, MariaSteering):
         elif self.n_sub == -1:
             if self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_alldets")
-                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.dx, self.dy, self.downsampling_factor)
+                self.signal_response_tod = Signal_TOD_alldets(self.gp_tod, self.offset_tod, self.slopes_tod, self.gp_map, self.dims_map, self.padding_map, self.dims_atmos, self.padding_atmos, self.sim_truthmap, self.offsets, self.downsampling_factor, self.pW_per_K_RJ)
             elif not self.fit_atmos and self.fit_map:
                 print("Initialising: Signal_TOD_alldets_maponly")
-                self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.dx, self.dy)
+                self.signal_response_tod = Signal_TOD_alldets_maponly(self.gp_map, self.dims_map, self.padding_map, self.sim_truthmap, self.offsets, self.pW_per_K_RJ)
             else:
                 raise ValueError("Config not supported!")
         else:
