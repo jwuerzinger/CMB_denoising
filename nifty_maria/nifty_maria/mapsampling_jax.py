@@ -3,11 +3,6 @@ Module collecting loose set of jax-ified and jit-ed mapsampling functions.
 """
 
 import jax
-# import numpy as np
-
-# from maria.constants import k_B
-# from maria import beam
-# import maria
 from functools import partial
 
 # jax compatible rewrite if beams.separably_filter

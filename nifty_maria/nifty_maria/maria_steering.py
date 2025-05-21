@@ -8,8 +8,6 @@ import maria
 from maria.constants import k_B
 from maria.instrument import Band
 
-import nifty_maria.mapsampling_jax
-
 class MariaSteering:
     """Subclass for steering maria code."""
     def __init__(self) -> None:
