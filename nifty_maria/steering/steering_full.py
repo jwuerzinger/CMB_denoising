@@ -85,7 +85,7 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
         if fit_map: fit.plotrecos(samples)
 
         if config == 'mustang': fit.make_atmosphere_det_gif(samples, figname=f"mustang_{fit.n_sub}_atmosphere_comp.gif", tmax=1000)
-        else: fit.make_atmosphere_det_gif(samples, figname=f"atlast_{fit.n_sub}_atmosphere_comp.gif", tmax=100)
+        else: fit.make_atmosphere_det_gif(samples, figname=f"atlast_{fit.n_sub}_atmosphere_comp.gif", tmax=1000)
     
 if __name__ == "__main__":
     main()
