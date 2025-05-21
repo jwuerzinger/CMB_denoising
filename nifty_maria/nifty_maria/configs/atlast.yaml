@@ -3,10 +3,11 @@ maria_params:
   scan_center: [291.156, -31.23]
   map_filename: "maps/big_cluster.fits"
   site: 'llano_de_chajnantor'
-  resolution: null
+  # resolution: null
+  resolution: 0.0009765625
   nu: 91.5e+9
-  nu_width: 51e+9
-  NET_RJ: 266e-6
+  nu_width: 51.e+09
+  NET_RJ: 266.e-06
   width: 1.
   scan_options:
     radius: 0.25

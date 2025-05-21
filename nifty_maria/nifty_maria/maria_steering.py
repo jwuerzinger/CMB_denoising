@@ -20,14 +20,6 @@ class MariaSteering:
         self.scan_center = tuple(maria_params['scan_center'])
         map_filename = maria.io.fetch(maria_params['map_filename'])
         # load in the map from a fits file
-        print("MARKER")
-        print('map_filename:', map_filename)
-        print("maria_params['nu']", maria_params['nu'], type(maria_params['nu']))
-        print("maria_params['resolution']", maria_params['resolution'])
-        print("maria_params['width']", maria_params['width'])
-        print("self.scan_center", self.scan_center, type(self.scan_center))
-        print("maria_params['units']", maria_params['units'])
-        
         
         self.input_map = maria.map.load(filename=map_filename, #filename
                                         nu = maria_params['nu'],
@@ -39,22 +31,6 @@ class MariaSteering:
                                     )
 
         self.input_map.to(units="K_RJ").plot()
-
-        # import maria
-
-        # map_filename = maria.io.fetch("maps/small_cluster.h5")
-
-        # self.input_map = maria.map.load(
-        #     nu=93e9,
-        #     filename=map_filename,  # filename
-        #     resolution = 8.714e-05,  # width in degrees
-        #     width = 0.08714,
-        #     center=(144, 12),  # position in the sky
-        #     frame="ra_dec",
-        #     units="Jy/pixel",  # units of the input map
-        # )
-
-        # self.input_map.plot()
 
         self.plan = maria.get_plan(scan_pattern="daisy", # scanning pattern
                                 scan_options=maria_params['scan_options'], # in degrees
@@ -85,7 +61,7 @@ class MariaSteering:
     
         f090 = Band(center=self.maria_params['nu'], # in Hz
                     width=self.maria_params['nu_width'],
-                    NET_RJ=self.maria_params['nu_width'])
+                    NET_RJ=self.maria_params['NET_RJ'])
 
         array = {"field_of_view": self.maria_params['field_of_view'], 
                  "bands": [f090], 
@@ -204,7 +180,7 @@ class MariaSteering:
                     units = "uK_RJ",
                     )
         elif self.config == 'atlast': # TODO: optimise!
-            mapper = BinMapper(self.scasn_center,
+            mapper = BinMapper(self.scan_center,
                     frame="ra_dec",
                     width=self.maria_params['width'],
                     height=self.maria_params['width'],
@@ -225,6 +201,6 @@ class MariaSteering:
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
-        self.output_map.plot()
+        self.output_map.plot(filepath=f"{self.plotsdir}/reco_maria.png")
         
         return
