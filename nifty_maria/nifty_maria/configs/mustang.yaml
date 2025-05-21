@@ -5,7 +5,7 @@ maria_params:
   site: 'green_bank'
   resolution: 8.714e-05
   nu: 930e9
-  width: null
+  width: 0.08714
   scan_options:
     radius: 0.0333
     speed: 0.008333

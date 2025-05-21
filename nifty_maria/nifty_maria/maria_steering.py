@@ -21,7 +21,7 @@ class MariaSteering:
         map_filename = maria.io.fetch(maria_params['map_filename'])
         # load in the map from a fits file
         self.input_map = maria.map.load(filename=map_filename, #filename
-                                        nu = maria_params['nu']
+                                        nu = maria_params['nu'],
                                         resolution=maria_params['resolution'], #pixel size in degrees
                                         width=maria_params['width'],
                                         center=self.scan_center, # position in the sky
@@ -117,17 +117,19 @@ class MariaSteering:
             mapdata_truth (array): Array with true simulated map. Added by FitHandler.reco_maria().
             output_map (Map): Map opbject obtained by reconstruction with postprocessing. Added by FitHandler.reco_maria().
         """
-        from maria.mappers import BinMapper
+        from maria.mappers import BinMapper, BaseMapper
 
         cmb_cmap = plt.get_cmap('cmb')
         
-        mapper_truthmap = BinMapper(
+        mapper_truthmap = BaseMapper(
             center=self.scan_center,
             frame="ra_dec",
-            width= 0.1 if self.config == 'mustang' else 1.,
-            height= 0.1 if self.config == 'mustang' else 1.,
+            # width= 0.1 if self.config == 'mustang' else 1.,
+            width = self.maria_params['width'],
+            # height= 0.1 if self.config == 'mustang' else 1.,
+            height = self.maria_params['width'],
             resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
-            map_postprocessing={"gaussian_filter": {"sigma": 0} }
+            map_postprocessing={"gaussian_filter": {"sigma": 1} }
         )
         mapper_truthmap.add_tods(self.tod_truthmap)
         self.output_truthmap = mapper_truthmap.run()
@@ -157,25 +159,27 @@ class MariaSteering:
         if self.config == 'mustang':
             mapper = BinMapper(self.scan_center,
                     frame="ra_dec",
-                    width=self.maria_params['width'],
-                    height=0.1,
-                    resolution=2e-4,
+                    width = self.maria_params['width'],
+                    # width= 0.1 if self.config == 'mustang' else 1.,
+                    height = self.maria_params['width'],
+                    # height= 0.1 if self.config == 'mustang' else 1.,
+                    resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
                     tod_preprocessing={
                             "window": {"name": "hamming"},
                             "remove_modes": {"modes_to_remove": [0]},
                             "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
                         },
-                        map_postprocessing={
+                    map_postprocessing={
                             "gaussian_filter": {"sigma": 1},
                             "median_filter": {"size": 1},
                         },
-                        units = "uK_RJ",
+                    units = "uK_RJ",
                     )
         elif self.config == 'atlast': # TODO: optimise!
-            mapper = BinMapper(self.scan_center,
+            mapper = BinMapper(self.scasn_center,
                     frame="ra_dec",
                     width=self.maria_params['width'],
-                    height=1.,
+                    height=self.maria_params['width'],
                     resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
                     tod_preprocessing={
                             # "window": {"name": "hamming"},
@@ -187,6 +191,7 @@ class MariaSteering:
                             "gaussian_filter": {"sigma": 1},
                             "median_filter": {"size": 1},
                         },
+                        units = "uK_RJ",
                     )
         
         mapper.add_tods(self.tod_truthmap)
