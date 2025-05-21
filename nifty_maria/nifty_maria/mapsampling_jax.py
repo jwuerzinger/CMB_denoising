@@ -5,6 +5,7 @@ Module collecting loose set of jax-ified and jit-ed mapsampling functions.
 import jax
 from functools import partial
 
+
 # jax compatible rewrite if beams.separably_filter
 @jax.jit
 def separably_filter_2d(data, F, tol=1e-2, return_filter=False):
@@ -68,6 +69,10 @@ def construct_beam_filter(fwhm, res, buffer=1):
 def sample_maps(sim_truthmap, instrument, offsets, resolution, x_side, y_side, pW_per_K_RJ):
 
     sim_truthmap = sim_truthmap[0, 0, :]
+
+    sigma_rad = instrument.dets.fwhm[0]/ jax.numpy.sqrt(8 * jax.numpy.log(2))
+    sigma_pixels = sigma_rad/resolution
+    sim_truthmap_smoothed = jax.scipy.ndimage.gaussian_filter(sim_truthmap, sigma=(sigma_pixels, sigma_pixels), axes=(-2, -1))
     # data_map = jax.numpy.array(1e-16 * np.random.standard_normal(size=offsets.shape[:-1]))
     pbar = instrument.bands
 
@@ -76,7 +81,7 @@ def sample_maps(sim_truthmap, instrument, offsets, resolution, x_side, y_side, p
 
         samples_K_RJ = jax.scipy.interpolate.RegularGridInterpolator(
             (y_side[::-1], x_side),
-            sim_truthmap[::-1],
+            sim_truthmap_smoothed[::-1],
             bounds_error=False,
             fill_value=0,
             method="nearest",
