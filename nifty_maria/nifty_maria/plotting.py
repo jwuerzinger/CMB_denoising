@@ -180,7 +180,7 @@ class Plotter:
                 gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))
 
             # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
-            res_map = sample_maps(gp_map_nopad, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
+            res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
             
             components += [res_map, self.tod_truthmap.data['map']]
             labels += ['pred. map', 'true map']
@@ -484,7 +484,7 @@ class Plotter:
 
                 scatter = ax.scatter(
                     *getattr(offsets, offsets.units)[band_mask].T,
-                    s=2.0,
+                    s=2.0*60 if self.config == 'mustang' else 2.0,
                     c=col,
                     cmap=cmb_cmap,
                     vmin=vmin,

@@ -3,9 +3,10 @@ Module to collect maria steering configs and code.
 """
 
 import numpy as np
-import maria
 import matplotlib.pyplot as plt
+import maria
 from maria.constants import k_B
+from maria.instrument import Band
 
 import nifty_maria.mapsampling_jax
 
@@ -42,20 +43,35 @@ class MariaSteering:
 
         self.plan.plot()
                 
-        self.instrument = nifty_maria.mapsampling_jax.instrument
+        # self.instrument = nifty_maria.mapsampling_jax.instrument
         # self.instrument = maria.get_instrument('MUSTANG-2')
-        # self.instrument = self.get_instrument()
+        self.instrument = self.get_instrument()
         self.instrument.plot()
         
         return
     
-    # def get_instrument(self) -> maria.Instrument:
-    #     """
-    #     Retrieves instrument object. Either AtLAST or MUSTANG-2 for now. Custom objects to be added later.
-    #     """
+    def get_instrument(self) -> maria.Instrument:
+        """
+        Retrieves instrument object. Either AtLAST or MUSTANG-2 for now. Custom objects to be added later.
+        """
         
-    #     if self.config == 'mustang': return maria.get_instrument('MUSTANG-2')
-    #     elif self.config == 'atlast': 
+        if self.config == 'mustang': return maria.get_instrument('MUSTANG-2')
+        elif self.config == 'atlast': return self.get_atlast()
+    
+    def get_atlast(self):
+    
+        f090 = Band(center=91.5e9, # in Hz
+                    width=51e9,
+                    knee=1,
+                    NET_RJ=266e-6)
+
+        array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
+
+        # global instrument
+        # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
+        instrument = maria.get_instrument(array=array)
+
+        return instrument
     
     def simulate(self) -> None:
         """

@@ -3,11 +3,12 @@ Module collecting loose set of jax-ified and jit-ed mapsampling functions.
 """
 
 import jax
-import numpy as np
+# import numpy as np
 
-from maria.constants import k_B
-from maria import beam
-import maria
+# from maria.constants import k_B
+# from maria import beam
+# import maria
+from functools import partial
 
 # jax compatible rewrite if beams.separably_filter
 @jax.jit
@@ -68,60 +69,8 @@ def construct_beam_filter(fwhm, res, buffer=1):
 
     return F / F.sum()
 
-instrument = maria.get_instrument('MUSTANG-2')
-
-from maria.instrument import Band
-
-def get_mini():
-    
-    f090 = Band(center=92, # in GHz
-                width=40.0,
-                knee=1,
-                sensitivity=6e-5) # in K sqrt(s)
-
-    # array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
-    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 4, "beam_spacing": 8} # Dummy setup with less detectors
-
-    global instrument
-    # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
-    instrument = maria.get_instrument(array=array)
-
-    return instrument
-
-def get_atlast():
-    
-    f090 = Band(center=92, # in GHz
-                width=40.0,
-                knee=1,
-                sensitivity=6e-5) # in K sqrt(s)
-
-    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
-
-    global instrument
-    # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
-    instrument = maria.get_instrument(array=array)
-
-    return instrument
-
-def get_dummy():
-    
-    f090 = Band(center=92, # in GHz
-                width=40.0,
-                knee=1,
-                sensitivity=6e-5) # in K sqrt(s)
-
-    # array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 2} # AtLAST
-    array = {"field_of_view": 1.0, "bands": [f090], "primary_size": 50, "beam_spacing": 4} # Dummy setup with less detectors
-
-    global instrument
-    # instrument = maria.get_instrument(array=array, primary_size=50, beam_spacing = 2)
-    instrument = maria.get_instrument(array=array)
-
-    return instrument
-
-# def sample_maps(sim_truthmap, dx, dy, resolution, x_side, y_side):
-@jax.jit
-def sample_maps(sim_truthmap, offsets, resolution, x_side, y_side, pW_per_K_RJ):
+@partial(jax.jit, static_argnames=['instrument'])
+def sample_maps(sim_truthmap, instrument, offsets, resolution, x_side, y_side, pW_per_K_RJ):
 
     sim_truthmap = sim_truthmap[0, 0, :]
     # data_map = jax.numpy.array(1e-16 * np.random.standard_normal(size=offsets.shape[:-1]))
@@ -139,8 +88,5 @@ def sample_maps(sim_truthmap, offsets, resolution, x_side, y_side, pW_per_K_RJ):
         )((offsets[band_mask, ..., 0], offsets[band_mask, ..., 1]))
 
         loading = pW_per_K_RJ * samples_K_RJ
-        # print("MARKER")
-        # print(loading)
-        # print(loading.shape)
 
     return loading
