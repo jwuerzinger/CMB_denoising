@@ -201,6 +201,6 @@ class MariaSteering:
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
-        self.output_map.plot(filepath=f"{self.plotsdir}/reco_maria.png")
+        self.output_map.plot(filename=f"{self.plotsdir}/reco_maria.png")
         
         return
