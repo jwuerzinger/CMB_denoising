@@ -138,7 +138,7 @@ class MariaSteering:
         # mapper_truthmap.add_tods(self.tod_truthmap)
         # self.output_truthmap = mapper_truthmap.run()
 
-        mapdata_truth = self.input_map.to(units="K_RJ").data
+        mapdata_truth = self.input_map.to(units="K_RJ").data.compute()
         self.mapdata_truth = np.nan_to_num(mapdata_truth, nan=np.nanmean(mapdata_truth)) # replace nan value by img mean
 
         print("mapdata_truth shape:", self.mapdata_truth.shape)
