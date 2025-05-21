@@ -2,14 +2,21 @@ name: atlast
 maria_params:
   scan_center: [291.156, -31.23]
   map_filename: "maps/big_cluster.fits"
+  site: 'llano_de_chajnantor'
   resolution: null
+  nu: 91.5e9
+  nu_width: 51e9
+  NET_RJ: 266e-6
   width: 1.
   scan_options:
     radius: 0.25
     speed: 0.5
   duration: 60
   sample_rate: 225
-  start_time: "2022-08-10T06:00:00"
+  field_of_view: 1.0
+  beam_spacing: 2
+  start_time: "2024-08-06T03:00:00"
+  units: Jy/pixel
 nifty_params:
   noiseval: 0.00028
   tod_offset : [5.0e-5, 1.0e-5]

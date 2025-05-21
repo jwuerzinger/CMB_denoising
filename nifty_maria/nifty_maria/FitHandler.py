@@ -303,10 +303,8 @@ class FitHandler(Plotter, MariaSteering):
         else:
             raise ValueError(f"Invalid splitting {self.n_split} supplied!")
         
-        from maria.units import Angle
-
-        test = Angle(self.instrument.dets.offsets)
-        pos = getattr(test, test.units).T
+        # from maria.units import Angle
+        pos = np.rad2deg(self.instrument.dets.offsets)*60
 
         # If based off of previous fit, split array into sub-arrays and assign previous fit results as initial params
         if samples is not None and self.n_split >= 1:
