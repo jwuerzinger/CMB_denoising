@@ -218,6 +218,41 @@ class Plotter:
         
         return 
     
+    def plotpullplot(self, samples: jft.evi.Samples) -> None:
+        """
+        Plots samples of the optimised GP
+        
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+        """
+        if self.fit_map: 
+            cmb_cmap = plt.get_cmap('cmb')
+
+            fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+
+            sig_maps = tuple(self.gp_map(s) for s in samples)
+            if self.padding_map > 0:
+                sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
+            sig_mean, sig_std = jft.mean_and_std(sig_maps)
+
+            sig_pull = (sig_mean - self.mapdata_truth[0, 0]) / sig_std
+
+            im = ax.imshow(sig_pull, cmap=cmb_cmap)
+            ax.title.set_text(f'signal map - pull plot')
+
+            div = make_axes_locatable(ax)
+            cax = div.append_axes('right', size='3%', pad='2%')
+            fig.colorbar(im, cax)
+
+            fig.suptitle(f"n_sub = {self.n_sub}")
+
+            if self.plotsdir is None: plt.show()
+            else:
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_pullplot_map.png")
+                plt.close()
+        
+        return 
+    
     def plotpowerspectrum(self, samples: jft.evi.Samples) -> None:
         """
         Plots power spectrum of predictions made by optimised GP and compares with truth.
