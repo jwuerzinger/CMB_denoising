@@ -82,11 +82,11 @@ class Plotter:
             axes_map[0].title.set_text('mean map pred.')
             fig_map.colorbar(im0)
 
-            im1 = axes_map[1].imshow(mean_map - self.mapdata_truth[0, 0], cmap=cmb_cmap)
+            im1 = axes_map[1].imshow(mean_map - self.mapdata_truth, cmap=cmb_cmap)
             axes_map[1].title.set_text('mean map - truth')
             fig_map.colorbar(im1)
 
-            im2 = axes_map[2].imshow(self.mapdata_truth[0, 0], cmap=cmb_cmap)
+            im2 = axes_map[2].imshow(self.mapdata_truth, cmap=cmb_cmap)
             axes_map[2].title.set_text('truth')
             fig_map.colorbar(im2)
 
@@ -144,7 +144,7 @@ class Plotter:
             axes[0].title.set_text('MAP - best fit image')
             fig.colorbar(im0)
 
-            im1 = axes[1].imshow( sig_map - self.mapdata_truth[0, 0], cmap=cmb_cmap)
+            im1 = axes[1].imshow( sig_map - self.mapdata_truth, cmap=cmb_cmap)
             axes[1].title.set_text('MAP - map truth')
             fig.colorbar(im1)
 
@@ -175,9 +175,11 @@ class Plotter:
 
         if self.fit_map:
             if self.padding_map > 0:
-                gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+                # gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+                gp_map_nopad = jft.mean(tuple(self.gp_map(s) for s in samples))[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
             else:
-                gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))
+                # gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))
+                gp_map_nopad = jft.mean(tuple(self.gp_map(s) for s in samples))
 
             # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
             res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
@@ -262,20 +264,21 @@ class Plotter:
         cmb_cmap = plt.get_cmap('cmb')
         fig, axes = plt.subplots(3, 2, figsize=(16, 16))
 
-        im0 = axes[0,0].imshow( self.mapdata_truth[0,0] , cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        im0 = axes[0,0].imshow( self.mapdata_truth , cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
         axes[0,0].title.set_text('truth')
         fig.colorbar(im0)
 
-        im1 = axes[0,1].imshow(self.output_truthmap.data[0,0], cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
-        fig.colorbar(im1)
-        axes[0,1].title.set_text("Noisy image (Mapper output)")
+        # im1 = axes[0,1].imshow(self.output_truthmap.data[0,0], cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        # fig.colorbar(im1)
+        # axes[0,1].title.set_text("Noisy image (Mapper output)")
 
-        im2 = axes[1,0].imshow(self.output_map.data[0, 0], cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        slice_2d = self.output_map.data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
+        im2 = axes[1,0].imshow(slice_2d, cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
         axes[1,0].title.set_text('maria mapper')
         fig.colorbar(im2)
 
-        truth_rescaled = resize(self.mapdata_truth[0,0], self.output_map.data[0, 0].shape, anti_aliasing=True)
-        im3 = axes[1,1].imshow((self.output_map.data[0, 0] - truth_rescaled), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        truth_rescaled = resize(self.mapdata_truth, slice_2d.shape, anti_aliasing=True)
+        im3 = axes[1,1].imshow((slice_2d - truth_rescaled), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
         axes[1,1].title.set_text('maria - truth')
         fig.colorbar(im3)
 
@@ -283,7 +286,7 @@ class Plotter:
         axes[2,0].title.set_text('best fit image')
         fig.colorbar(im3)
 
-        im4 = axes[2,1].imshow((sig_map - self.mapdata_truth[0,0]), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
+        im4 = axes[2,1].imshow((sig_map - self.mapdata_truth), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
         axes[2,1].title.set_text('best fit - truth')
         fig.colorbar(im4)
 

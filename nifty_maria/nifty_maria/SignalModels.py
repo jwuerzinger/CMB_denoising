@@ -43,7 +43,8 @@ class Signal_TOD_alldets(jft.Model):
         # From TOD-only fit:
         res_tods_offset = jnp.repeat(res_tods_fulldet, self.downsampling_factor, axis=1) * self.slopes_truth + self.offset_tod_truth
 
-        gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+        # gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+        gp_map_nopad = self.gp_map(x)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
         # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
         res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
         modified_res_map = res_map + res_tods_offset
@@ -97,7 +98,8 @@ class Signal_TOD_alldets_maponly(jft.Model):
                         domain = self.gp_map.domain )
 
     def __call__(self, x):    
-        gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+        # gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+        gp_map_nopad = self.gp_map(x)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
         # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
         res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
         modified_res_map = res_map
@@ -144,7 +146,8 @@ class Signal_TOD_general(jft.Model):
         res_tods_offset = jnp.repeat(res_tods_fulldet, self.downsampling_factor, axis=1) * self.slopes_truth + self.offset_tod_truth
 
         # Sample map and add
-        gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+        # gp_map_nopad = jnp.broadcast_to(self.gp_map(x), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+        gp_map_nopad = self.gp_map(x)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
         # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
         res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
         modified_res_map = res_map + res_tods_offset
