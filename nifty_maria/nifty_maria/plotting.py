@@ -106,26 +106,27 @@ class Plotter:
         
         Args:
             samples (jft.evi.Samples): Samples to plot fit results for.
-        """
-        cmb_cmap = plt.get_cmap('cmb')
-        
+        """        
         res = jft.mean(tuple(self.signal_response_tod(s) for s in samples))
         n = self.noised_jax_tod.shape[0]
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
         for i in range(0, n, n//10 if n//10 != 0 else 1):
-            im0 = axes[0].plot(np.arange(0, res.shape[1]), res[i], label=f"tod{i}")
-            im1 = axes[1].plot(np.arange(0, res.shape[1]), res[i] - self.noised_jax_tod[i], label=f"tod{i}")
-            im2 = axes[2].plot(self.noised_jax_tod[i], label=f"truth{i}")
+            axes[0].plot(np.arange(0, res.shape[1]), res[i], label=f"tod {i}")
+            axes[1].plot(np.arange(0, res.shape[1]), res[i] - self.noised_jax_tod[i], label=f"tod {i}")
+            axes[2].plot(self.noised_jax_tod[i], label=f"tod {i}")
 
         fig.suptitle(f"n_sub = {self.n_sub}")
-        axes[0].title.set_text('MAP - best fit image')
+        axes[0].title.set_text('TODs: mean')
         axes[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-        axes[1].title.set_text('MAP - map truth')
+        axes[1].title.set_text('TODs: mean - truth')
         axes[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-        axes[2].title.set_text('truth')
+        axes[2].title.set_text('TODs: truth')
         axes[2].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+
+        for ax in axes[:-1]:
+            ax.tick_params(labelbottom=False)
 
         if self.plotsdir is None: plt.show()
         else:
@@ -133,27 +134,31 @@ class Plotter:
             plt.close()
         
         if self.fit_map: 
-            # plot maximum of posterior (mode)
+            cmb_cmap = plt.get_cmap('cmb')
+
+            sig_maps = tuple(self.gp_map(s) for s in samples)
             if self.padding_map > 0:
-                sig_map = jft.mean(tuple(self.gp_map(s)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in samples))
-            else:
-                sig_map = jft.mean(tuple(self.gp_map(s) for s in samples))
+                sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
+            sig_mean = jft.mean(sig_maps)
+
+            images = (sig_mean, sig_mean - self.mapdata_truth[0, 0])
+            titles = ('signal map: mean', 'signal map: mean - truth')
 
             fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
-            im0 = axes[0].imshow(sig_map, cmap=cmb_cmap)
-            axes[0].title.set_text('MAP - best fit image')
-            fig.colorbar(im0)
+            for i in range(2):
+                im = axes[i].imshow(images[i], cmap=cmb_cmap)
+                axes[i].title.set_text(titles[i])
 
-            im1 = axes[1].imshow( sig_map - self.mapdata_truth, cmap=cmb_cmap)
-            axes[1].title.set_text('MAP - map truth')
-            fig.colorbar(im1)
+                div = make_axes_locatable(axes[i])
+                cax = div.append_axes('right', size='3%', pad='2%')
+                fig.colorbar(im, cax)
 
             fig.suptitle(f"n_sub = {self.n_sub}")
 
             if self.plotsdir is None: plt.show()
             else:
-                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_mapagreement_final.png")
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_map_agreement_final.png")
                 plt.close()
         
         return 
@@ -178,7 +183,7 @@ class Plotter:
             tmean = jft.mean(todk)
             axes[k].plot(np.arange(0, tmean.shape[1]), tmean[idxk], label=f"tod {idxk} - mean", c='red')
 
-            axes[k].title.set_text(f'tod {idxk} - samples and mean')
+            axes[k].title.set_text(f'tod {idxk}: samples and mean')
             axes[k].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
 
         fig.suptitle(f"n_sub = {self.n_sub}")
@@ -202,7 +207,7 @@ class Plotter:
 
             for i,s in enumerate(sig_maps):
                 im = axes[i].imshow(s, cmap=cmb_cmap, vmin=vmin, vmax=vmax)
-                axes[i].title.set_text(f'signal map - sample {i}')
+                axes[i].title.set_text(f'signal map: sample {i}')
 
                 div = make_axes_locatable(axes[i])
                 cax = div.append_axes('right', size='3%', pad='2%')
@@ -220,7 +225,7 @@ class Plotter:
     
     def plotpullplot(self, samples: jft.evi.Samples) -> None:
         """
-        Plots samples of the optimised GP
+        Plots pull plot of the signal map `= (mean - truth) / std`.
         
         Args:
             samples (jft.evi.Samples): Samples to plot fit results for.
@@ -237,8 +242,8 @@ class Plotter:
 
             sig_pull = (sig_mean - self.mapdata_truth[0, 0]) / sig_std
 
-            im = ax.imshow(sig_pull, cmap=cmb_cmap)
-            ax.title.set_text(f'signal map - pull plot')
+            im = ax.imshow(sig_pull, cmap=cmb_cmap, vmin=-10, vmax=10)
+            ax.title.set_text(f'signal map: pull plot')
 
             div = make_axes_locatable(ax)
             cax = div.append_axes('right', size='3%', pad='2%')
