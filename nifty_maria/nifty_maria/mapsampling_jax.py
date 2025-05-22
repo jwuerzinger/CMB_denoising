@@ -69,7 +69,7 @@ def construct_beam_filter(fwhm, res, buffer=1):
 
     return F / F.sum()
 
-# @jax.jit
+@partial(jax.jit, static_argnames=['radius'])
 def gaussian_kernel2d(sigma, radius):
     '''
     Re-implementation of scipy.ndimage.gaussian_kernel2d
@@ -92,7 +92,7 @@ def gaussian_kernel2d(sigma, radius):
     normal = 1/(2 * jnp.pi * sigma**2)
     return jnp.exp(-(dst**2 / (2.0 * sigma**2))) * normal
  
-# @jax.jit
+@partial(jax.jit, static_argnames=['radius'])
 def gaussian_filter2d(x, sigma, radius=5):
     '''
     Re-implementation of scipy.ndimage.gaussian_filter2d
