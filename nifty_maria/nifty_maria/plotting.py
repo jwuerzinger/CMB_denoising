@@ -517,7 +517,7 @@ class Plotter:
             print("Not fitting atmosphere, skipping plot..")
             return 
         
-        from maria.units import Angle
+        from maria.units import Quantity
 
         cmb_cmap = plt.get_cmap("cmb")
         
@@ -528,7 +528,7 @@ class Plotter:
             
         best_fit_atmos = jft.mean(best_fit_atmos)
 
-        test = Angle(self.instrument.dets.offsets)
+        test = Quantity(self.instrument.dets.offsets, "rad")
         pos = getattr(test, test.units).T
 
         col = np.zeros(pos[0].shape)
@@ -566,13 +566,13 @@ class Plotter:
         Raises:
             ValueError: If invalid n_sub value is supplied.
         """
-        from maria.units import Angle
+        from maria.units import Quantity
 
         instrument = self.instrument
 
         cmb_cmap = plt.get_cmap("cmb")
 
-        test = Angle(instrument.dets.offsets)
+        test = Quantity(instrument.dets.offsets, "rad")
         pos = getattr(test, test.units).T
         
         col = np.zeros(pos[0].shape)
@@ -606,10 +606,12 @@ class Plotter:
             z (float, optional): Gaussian beam distance in instrument. Defaults to np.inf.
         """
         from matplotlib.collections import EllipseCollection
-        from maria.units import Angle
+        from maria.units import Quantity
 
-        fwhms = Angle(self.instrument.dets.angular_fwhm(z=z))
-        offsets = Angle(self.instrument.dets.offsets)
+        # fwhms = Angle(self.instrument.dets.angular_fwhm(z=z))
+        # offsets = Angle(self.instrument.dets.offsets)
+        fwhms = Quantity(self.instrument.dets.angular_fwhm(z=z), "rad")
+        offsets = Quantity(self.instrument.dets.offsets, "rad")
 
         i = 0
 
