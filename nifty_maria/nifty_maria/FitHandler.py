@@ -545,7 +545,7 @@ class FitHandler(Plotter, MariaSteering):
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),
-            callback=self.callback if fit_type != 'map' else None,
+            callback=self.plot_callback if fit_type != 'map' else None,
             odir=self.plotsdir, # output directory
         )
         
