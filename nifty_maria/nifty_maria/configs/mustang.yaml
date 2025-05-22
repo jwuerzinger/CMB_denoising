@@ -9,11 +9,11 @@ maria_params:
   scan_options:
     radius: 0.0333
     speed: 0.008333
-  # duration: 1200
-  duration: 600
+  duration: 1800
+  # duration: 600
   sample_rate: 50
   start_time: '2024-02-10T06:00:00.000'
-  units: Jy/pixel
+  units: mJy/pixel
 nifty_params:
   noiseval: 2.5e-4
   tod_offset : [1.0e-5, 0.99e-5]

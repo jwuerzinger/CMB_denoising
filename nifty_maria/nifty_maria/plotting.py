@@ -10,9 +10,18 @@ from nifty8.re.optimize_kl import OptimizeVIState
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 from nifty_maria.mapsampling_jax import sample_maps
+from nifty_maria.mapsampling_jax import gaussian_filter2d
 
 class Plotter:
     """Subclass containing plotting functionalities."""
+
+    def smooth_img(self, img):
+        
+        sigma_rad = self.instrument.dets.fwhm[0]/ jnp.sqrt(8 * jnp.log(2))
+        sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
+        img_smoothed = gaussian_filter2d(img, sigma_pixels, radius=16)
+        
+        return img_smoothed
 
     def plot_callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
         """
@@ -100,8 +109,8 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-            images = (sig_mean, sig_mean - self.mapdata_truth, self.mapdata_truth)
-            titles = ("map: mean", "map: mean - truth", "map: truth")
+            images = (sig_mean, sig_mean - self.smooth_img(self.mapdata_truth), self.smooth_img(self.mapdata_truth))
+            titles = ("map: mean", "map: mean - truth (smoothed)", "map: truth (smoothed)")
 
             fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
@@ -229,7 +238,7 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean, sig_std = jft.mean_and_std(sig_maps)
 
-            sig_pull = (sig_mean - self.mapdata_truth) / sig_std
+            sig_pull = (sig_mean - self.smooth_img(self.mapdata_truth)) / sig_std
 
             im = ax.imshow(sig_pull, cmap=cmb_cmap, vmin=-10, vmax=10)
             ax.title.set_text(f"map: pull plot")
@@ -267,15 +276,15 @@ class Plotter:
             sig_mean = jft.mean(sig_maps)
 
             output_map = self.output_map.data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
-            truth_rescaled = resize(self.mapdata_truth, output_map.shape, anti_aliasing=True)
+            truth_rescaled = resize(self.smooth_img(self.mapdata_truth), output_map.shape, anti_aliasing=True)
 
             images = (
-                output_map, output_map - truth_rescaled, self.mapdata_truth,
-                sig_mean, sig_mean - self.mapdata_truth,
+                output_map, output_map - truth_rescaled, self.smooth_img(self.mapdata_truth),
+                sig_mean, sig_mean - self.smooth_img(self.mapdata_truth),
             )
             titles = (
-                "maria mapper", "maria - truth", "truth",
-                "nifty mean", "nifty mean - truth",
+                "maria mapper", "maria - truth (smoothed)", "truth (smoothed)",
+                "nifty mean", "nifty mean - truth (smoothed)",
             )
             
             fig = plt.figure(figsize=(15, 10))

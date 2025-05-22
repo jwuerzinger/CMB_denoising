@@ -65,7 +65,6 @@ def gaussian_filter2d(x, sigma, radius=5):
 @partial(jax.jit, static_argnames=['instrument'])
 def sample_maps(sim_truthmap, instrument, offsets, resolution, x_side, y_side, pW_per_K_RJ):
 
-
     sigma_rad = instrument.dets.fwhm[0]/ jax.numpy.sqrt(8 * jax.numpy.log(2))
     sigma_pixels = sigma_rad/resolution
     sim_truthmap_smoothed = gaussian_filter2d(sim_truthmap, sigma_pixels, radius=16)
