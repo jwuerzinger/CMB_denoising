@@ -100,7 +100,7 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-            images = (sig_mean, sig_mean - self.mapdata_truth[0, 0], self.mapdata_truth[0, 0])
+            images = (sig_mean, sig_mean - self.mapdata_truth, self.mapdata_truth)
             titles = ("map: mean", "map: mean - truth", "map: truth")
 
             fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -229,7 +229,7 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean, sig_std = jft.mean_and_std(sig_maps)
 
-            sig_pull = (sig_mean - self.mapdata_truth[0, 0]) / sig_std
+            sig_pull = (sig_mean - self.mapdata_truth) / sig_std
 
             im = ax.imshow(sig_pull, cmap=cmb_cmap, vmin=-10, vmax=10)
             ax.title.set_text(f"map: pull plot")
@@ -266,24 +266,23 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-            truth_rescaled = resize(self.mapdata_truth[0,0], self.output_map.data[0, 0].shape, anti_aliasing=True)
+            output_map = self.output_map.data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
+            truth_rescaled = resize(self.mapdata_truth, output_map.shape, anti_aliasing=True)
 
             images = (
-                self.mapdata_truth[0,0], self.output_truthmap.data[0,0],
-                self.output_map.data[0, 0], self.output_map.data[0, 0] - truth_rescaled,
-                sig_mean, sig_mean - self.mapdata_truth[0, 0],
+                output_map, output_map - truth_rescaled, self.mapdata_truth,
+                sig_mean, sig_mean - self.mapdata_truth,
             )
             titles = (
-                "truth", "noisy image (mapper output)",
-                "maria mapper", "maria - truth",
+                "maria mapper", "maria - truth", "truth",
                 "nifty mean", "nifty mean - truth",
             )
             
-            fig = plt.figure(figsize=(10, 15))
+            fig = plt.figure(figsize=(15, 10))
 
             axes = []
-            for i in range(6):
-                axes.append(fig.add_subplot(3, 2, i+1))
+            for i in range(5):
+                axes.append(fig.add_subplot(2, 3, i+1))
 
                 im = axes[-1].imshow(images[i], cmap=cmb_cmap)
                 axes[-1].title.set_text(titles[i])
