@@ -13,190 +13,173 @@ from nifty_maria.mapsampling_jax import sample_maps
 
 class Plotter:
     """Subclass containing plotting functionalities."""
-    def callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
+
+    def plot_callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
         """
         Callback function to be used for plotting fit status during optimisation.
         
         Args:
             samples (jft.evi.Samples): Samples to perform plots for.
-            opt_state (jft.optimize_kl.OptimizeVIState): Optimisation state to plot.
+            opt_state (OptimizeVIState): Optimisation state to plot.
         """
-        cmb_cmap = plt.get_cmap('cmb')
-        
-        iter = opt_state[0]
-        n = self.noised_jax_tod.shape[0]
-        if iter % self.printevery != 0: return
-
-        fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
-        mean, std = jft.mean_and_std(tuple(self.signal_response_tod(s) for s in samples))
-
-        for i in range(0, n, n//10 if n//10 != 0 else 1):
-            axes_tods[0].plot(np.arange(0, mean.shape[1]), mean[i], label=f"tod{i}")
-            axes_tods[0].plot(self.denoised_jax_tod[i], label=f"truth{i}")
-            axes_tods[1].plot(np.arange(0, mean.shape[1]), mean[i] - self.denoised_jax_tod[i], label=f"tod{i}")
-
-        fig_tods.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
-        axes_tods[0].title.set_text('total mean pred. & truth (no noise)')
-        axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-        axes_tods[1].title.set_text('total mean pred. - truth (no noise)')
-        if self.plotsdir is None: plt.show()
-        else:
-            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_TODagreement.png")
-            plt.close()
-
-        if self.fit_atmos:
-            fig_tods, axes_tods = plt.subplots(2, 1, figsize=(16, 6))
-
-            preds = []
-            for x in samples:
-                x_tod = {k: x[k] for k in x if 'comb' in k}
-                res_tods = self.gp_tod(x_tod)
-
-                preds += [res_tods[:, self.padding_atmos//2:-self.padding_atmos//2], ]
-
-            mean_atmos, std = jft.mean_and_std(tuple(preds))
-
-            for i in range(0, n, n//10 if n//10 != 0 else 1):
-                axes_tods[0].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor), label=f"tod{i}")
-                axes_tods[0].plot(self.atmos_tod_simplified[i], label=f"truth{i}")
-                axes_tods[1].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor) - jnp.array(self.atmos_tod_simplified[i]), label=f"tod{i}")
-
-            fig_tods.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
-            axes_tods[0].title.set_text('mean atmos pred. & simplified truth (no noise)')
-            axes_tods[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-            axes_tods[1].title.set_text('mean atmos pred. - simplified truth (no noise)')
-            
-            if self.plotsdir is None: plt.show()
-            else:
-                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_simplified_atmos.png")
-                plt.close()
-
-        if self.fit_map:
-            fig_map, axes_map = plt.subplots(1, 3, figsize=(16, 6))
-
-            if self.padding_map > 0:
-                mean_map, _ = jft.mean_and_std(tuple(self.gp_map(s)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in samples))
-            else:
-                mean_map, _ = jft.mean_and_std(tuple(self.gp_map(s) for s in samples))
-
-            im0 = axes_map[0].imshow(mean_map, cmap=cmb_cmap)
-            axes_map[0].title.set_text('mean map pred.')
-            fig_map.colorbar(im0)
-
-            im1 = axes_map[1].imshow(mean_map - self.mapdata_truth, cmap=cmb_cmap)
-            axes_map[1].title.set_text('mean map - truth')
-            fig_map.colorbar(im1)
-
-            im2 = axes_map[2].imshow(self.mapdata_truth, cmap=cmb_cmap)
-            axes_map[2].title.set_text('truth')
-            fig_map.colorbar(im2)
-
-            fig_map.suptitle(f"n_sub = {self.n_sub}, iter: {iter}")
-        
-            if self.plotsdir is None: plt.show()
-            else:
-                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_iter_{iter}_map.png")
-                plt.close()
-        
+        self.plot_tod_agreement(samples, opt_state)
+        self.plot_map_agreement(samples, opt_state)
+        self.plot_atmos_simplified(samples, opt_state)
         return
-        
-    def plotfitresults(self, samples: jft.evi.Samples) -> None:
+
+    def plot_results(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
         """
-        Plots predictions made by optimised GP and compares with truth.
-        
+        Outputs several plots.
+
         Args:
             samples (jft.evi.Samples): Samples to plot fit results for.
-        """        
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
+        self.plot_tod_agreement(samples, opt_state)
+        self.plot_map_agreement(samples, opt_state)
+        self.plot_tod_samples(samples, opt_state)
+        self.plot_map_samples(samples, opt_state)
+        self.plot_map_pullplot(samples, opt_state)
+        self.plot_map_comparison(samples, opt_state)
+        self.plot_atmos_simplified(samples, opt_state)
+        self.plot_power_spectrum(samples, opt_state)
+        return
+
+    def plot_tod_agreement(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plot comparison of the optimised TODs with the truth.
+
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
         res = jft.mean(tuple(self.signal_response_tod(s) for s in samples))
-        n = self.noised_jax_tod.shape[0]
 
-        fig, axes = plt.subplots(3, 1, figsize=(16, 8))
+        fig, axes = plt.subplots(3, 1, figsize=(15, 10))
 
-        for i in range(0, n, n//10 if n//10 != 0 else 1):
+        n_tods = 10
+        for i in np.linspace(0, self.noised_jax_tod.shape[0]-1, n_tods, dtype=int):
             axes[0].plot(np.arange(0, res.shape[1]), res[i], label=f"tod {i}")
             axes[1].plot(np.arange(0, res.shape[1]), res[i] - self.noised_jax_tod[i], label=f"tod {i}")
             axes[2].plot(self.noised_jax_tod[i], label=f"tod {i}")
 
-        fig.suptitle(f"n_sub = {self.n_sub}")
-        axes[0].title.set_text('TODs: mean')
-        axes[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-        axes[1].title.set_text('TODs: mean - truth')
-        axes[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
-        axes[2].title.set_text('TODs: truth')
-        axes[2].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+        axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
+        axes[0].title.set_text("tods: mean")
+        axes[1].title.set_text("tods: mean - truth")
+        axes[2].title.set_text("tods: truth")
 
+        for ax in axes:
+            ax.set_xlim(0, res.shape[1])
         for ax in axes[:-1]:
             ax.tick_params(labelbottom=False)
 
-        if self.plotsdir is None: plt.show()
+        name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+        fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+        if self.plotsdir is None: 
+            plt.show()
         else:
-            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_TODagreement_final.png")
+            name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_tod_agreement.png")
             plt.close()
-        
+        return
+    
+    def plot_map_agreement(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plot comparison of the optimised maps with the truth.
+
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
         if self.fit_map: 
-            cmb_cmap = plt.get_cmap('cmb')
+            cmb_cmap = plt.get_cmap("cmb")
 
             sig_maps = tuple(self.gp_map(s) for s in samples)
             if self.padding_map > 0:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-            images = (sig_mean, sig_mean - self.mapdata_truth[0, 0])
-            titles = ('signal map: mean', 'signal map: mean - truth')
+            images = (sig_mean, sig_mean - self.mapdata_truth[0, 0], self.mapdata_truth[0, 0])
+            titles = ("map: mean", "map: mean - truth", "map: truth")
 
-            fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+            fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-            for i in range(2):
+            for i in range(3):
                 im = axes[i].imshow(images[i], cmap=cmb_cmap)
                 axes[i].title.set_text(titles[i])
 
                 div = make_axes_locatable(axes[i])
-                cax = div.append_axes('right', size='3%', pad='2%')
+                cax = div.append_axes("right", size="3%", pad="2%")
                 fig.colorbar(im, cax)
 
-            fig.suptitle(f"n_sub = {self.n_sub}")
+            for ax in axes[1:]:
+                ax.tick_params(labelleft=False)
 
-            if self.plotsdir is None: plt.show()
+            fig.tight_layout()
+            name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+            fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+            if self.plotsdir is None: 
+                plt.show()
             else:
-                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_map_agreement_final.png")
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_map_agreement.png")
                 plt.close()
-        
         return 
     
-    def plotsamples(self, samples: jft.evi.Samples) -> None:
+    def plot_tod_samples(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
         """
-        Plots samples of the optimised GP
+        Plots samples of the optimised tods.
         
         Args:
             samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
         """
-        fig, axes = plt.subplots(3, 1, figsize=(16, 8))
+        fig, axes = plt.subplots(3, 1, figsize=(15, 10))
 
         for k in range(0, 3):
             idxk = np.random.randint(0, self.noised_jax_tod.shape[0])
             todk = []
             for i in range(len(samples)):
                 ti = self.signal_response_tod(samples[i])
-                axes[k].plot(np.arange(0, ti.shape[1]), ti[idxk], label=f"tod {idxk} - sample {i}", c='gray')
+                axes[k].plot(np.arange(0, ti.shape[1]), ti[idxk], label=f"tod {idxk} - sample {i}", c="gray")
                 todk.append(ti)
 
             tmean = jft.mean(todk)
-            axes[k].plot(np.arange(0, tmean.shape[1]), tmean[idxk], label=f"tod {idxk} - mean", c='red')
+            axes[k].plot(np.arange(0, tmean.shape[1]), tmean[idxk], label=f"tod {idxk} - mean", c="red")
 
-            axes[k].title.set_text(f'tod {idxk}: samples and mean')
-            axes[k].legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+            axes[k].title.set_text(f"tod {idxk}: samples and mean")
+            axes[k].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
 
-        fig.suptitle(f"n_sub = {self.n_sub}")
+        for ax in axes:
+            ax.set_xlim(0, ti.shape[1])
+        for ax in axes[:-1]:
+            ax.tick_params(labelbottom=False)
 
-        if self.plotsdir is None: plt.show()
+        name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+        fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+        if self.plotsdir is None: 
+            plt.show()
         else:
-            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_samples_tod.png")
+            name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_tod_samples.png")
             plt.close()
+        return
 
+    def plot_map_samples(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plots samples of the optimised map.
+
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
         if self.fit_map: 
-            cmb_cmap = plt.get_cmap('cmb')
+            cmb_cmap = plt.get_cmap("cmb")
 
-            fig, axes = plt.subplots(1, len(samples), figsize=(16, 8))
+            fig, axes = plt.subplots(1, len(samples), figsize=(len(samples)*5, 5))
 
             sig_maps = tuple(self.gp_map(s) for s in samples)
             if self.padding_map > 0:
@@ -207,31 +190,37 @@ class Plotter:
 
             for i,s in enumerate(sig_maps):
                 im = axes[i].imshow(s, cmap=cmb_cmap, vmin=vmin, vmax=vmax)
-                axes[i].title.set_text(f'signal map: sample {i}')
+                axes[i].title.set_text(f"map: sample {i}")
 
                 div = make_axes_locatable(axes[i])
-                cax = div.append_axes('right', size='3%', pad='2%')
+                cax = div.append_axes("right", size="3%", pad="2%")
                 fig.colorbar(im, cax)
 
-            fig.tight_layout()
-            fig.suptitle(f"n_sub = {self.n_sub}")
+            for ax in axes[1:]:
+                ax.tick_params(labelleft=False)
 
-            if self.plotsdir is None: plt.show()
+            fig.tight_layout()
+            name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+            fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+            if self.plotsdir is None: 
+                plt.show()
             else:
-                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_samples_map.png")
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_map_samples.png")
                 plt.close()
-        
         return 
     
-    def plotpullplot(self, samples: jft.evi.Samples) -> None:
+    def plot_map_pullplot(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
         """
-        Plots pull plot of the signal map `= (mean - truth) / std`.
+        Plots pull plot of the map `= (mean - truth) / std`.
         
         Args:
             samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
         """
         if self.fit_map: 
-            cmb_cmap = plt.get_cmap('cmb')
+            cmb_cmap = plt.get_cmap("cmb")
 
             fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 
@@ -243,27 +232,136 @@ class Plotter:
             sig_pull = (sig_mean - self.mapdata_truth[0, 0]) / sig_std
 
             im = ax.imshow(sig_pull, cmap=cmb_cmap, vmin=-10, vmax=10)
-            ax.title.set_text(f'signal map: pull plot')
+            ax.title.set_text(f"map: pull plot")
 
             div = make_axes_locatable(ax)
-            cax = div.append_axes('right', size='3%', pad='2%')
+            cax = div.append_axes("right", size="3%", pad="2%")
             fig.colorbar(im, cax)
 
-            fig.suptitle(f"n_sub = {self.n_sub}")
+            name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+            fig.suptitle(f"n_sub = {self.n_sub}{name}")
 
-            if self.plotsdir is None: plt.show()
+            if self.plotsdir is None: 
+                plt.show()
             else:
-                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_pullplot_map.png")
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_map_pullplot.png")
                 plt.close()
-        
-        return 
+        return
     
-    def plotpowerspectrum(self, samples: jft.evi.Samples) -> None:
+    def plot_map_comparison(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plot comparison of the optimised maps with maria fit and truth.
+
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
+        if self.fit_map:
+            from skimage.transform import resize
+            cmb_cmap = plt.get_cmap("cmb")
+
+            sig_maps = tuple(self.gp_map(s) for s in samples)
+            if self.padding_map > 0:
+                sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
+            sig_mean = jft.mean(sig_maps)
+
+            truth_rescaled = resize(self.mapdata_truth[0,0], self.output_map.data[0, 0].shape, anti_aliasing=True)
+
+            images = (
+                self.mapdata_truth[0,0], self.output_truthmap.data[0,0],
+                self.output_map.data[0, 0], self.output_map.data[0, 0] - truth_rescaled,
+                sig_mean, sig_mean - self.mapdata_truth[0, 0],
+            )
+            titles = (
+                "truth", "noisy image (mapper output)",
+                "maria mapper", "maria - truth",
+                "nifty mean", "nifty mean - truth",
+            )
+            
+            fig = plt.figure(figsize=(10, 15))
+
+            axes = []
+            for i in range(6):
+                axes.append(fig.add_subplot(3, 2, i+1))
+
+                im = axes[-1].imshow(images[i], cmap=cmb_cmap)
+                axes[-1].title.set_text(titles[i])
+
+                div = make_axes_locatable(axes[-1])
+                cax = div.append_axes("right", size="3%", pad="2%")
+                fig.colorbar(im, cax)
+
+                if i % 2 != 0:
+                    axes[-1].tick_params(labelleft=False)
+                if i < 4:
+                    axes[-1].tick_params(labelbottom=False)
+
+            fig.tight_layout()
+            name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+            fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+            if self.plotsdir is None: 
+                plt.show()
+            else:
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_map_comparison.png")
+                plt.close()
+        return
+    
+    def plot_atmos_simplified(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plots simplified atmosphere predictions made by optimised GP and compares with truth.
+
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
+        if self.fit_atmos:
+            fig, axes = plt.subplots(2, 1, figsize=(16, 6))
+
+            preds = []
+            for x in samples:
+                x_tod = {k: x[k] for k in x if "comb" in k}
+                res_tods = self.gp_tod(x_tod)
+
+                preds += [res_tods[:, self.padding_atmos//2:-self.padding_atmos//2], ]
+
+            mean_atmos, std = jft.mean_and_std(tuple(preds))
+
+            n_tods = 10
+            for i in np.linspace(0, self.noised_jax_tod.shape[0]-1, n_tods, dtype=int):
+                axes[0].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor), label=f"tod {i}")
+                axes[0].plot(self.atmos_tod_simplified[i], label=f"truth{i}")
+                axes[1].plot(np.arange(0, mean_atmos.shape[1]*self.downsampling_factor), jnp.repeat(mean_atmos[i], self.downsampling_factor) - jnp.array(self.atmos_tod_simplified[i]), label=f"tod {i}")
+
+            axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
+            axes[0].title.set_text("simplified atmos: mean & truth (no noise)")
+            axes[1].title.set_text("simplified atmos: mean - truth (no noise)")
+
+            for ax in axes:
+                ax.set_xlim(0, np.arange(0, mean_atmos.shape[1]*self.downsampling_factor).size)
+            for ax in axes[:-1]:
+                ax.tick_params(labelbottom=False)
+
+            name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+            fig.suptitle(f"n_sub = {self.n_sub}{name}")
+            
+            if self.plotsdir is None: 
+                plt.show()
+            else:
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_atmos_simplified.png")
+                plt.close()
+        return
+    
+    def plot_power_spectrum(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
         """
         Plots power spectrum of predictions made by optimised GP and compares with truth.
         
         Args:
             samples (jft.evi.Samples): Samples to plot power spectrum for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
         """
         import scipy as sp
         from itertools import cycle
@@ -271,8 +369,8 @@ class Plotter:
         colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
 
         components = [jft.mean(tuple(self.signal_response_tod(s) for s in samples))]
-        labels = ['pred. total']
-        linestyles = ['-']
+        labels = ["pred. total"]
+        linestyles = ["-"]
 
         if self.fit_map:
             if self.padding_map > 0:
@@ -285,26 +383,26 @@ class Plotter:
             # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
             res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
             
-            components += [res_map, self.tod_truthmap.data['map']]
-            labels += ['pred. map', 'true map']
-            linestyles += ['-', '--']
+            components += [res_map, self.tod_truthmap.data["map"]]
+            labels += ["pred. map", "true map"]
+            linestyles += ["-", "--"]
 
         if self.fit_atmos:
             
             res_tods = ()
             for s in samples:
-                x_tod = {k: s[k] for k in s if 'comb' in k}
+                x_tod = {k: s[k] for k in s if "comb" in k}
                 res_tod = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
                 res_tod = jnp.repeat(res_tod, self.downsampling_factor)[None, :]
                 res_tods += (res_tod,)
                 
             res_tods = jft.mean(res_tods)
             
-            components += [res_tods, self.tod_truthmap.data['atmosphere']]
-            labels += ['pred. atmos', 'true atmos']
-            linestyles += ['-', '--']
+            components += [res_tods, self.tod_truthmap.data["atmosphere"]]
+            labels += ["pred. atmos", "true atmos"]
+            linestyles += ["-", "--"]
 
-        fig_tods, axes_tods = plt.subplots(1, 1, figsize=(16, 6))
+        fig, axes = plt.subplots(1, 1, figsize=(16, 6))
         for i in range(len(components)):
             
             f, ps = sp.signal.periodogram(components[i], fs=self.tod_truthmap.fs, window="tukey")
@@ -318,8 +416,8 @@ class Plotter:
 
             use = binned_ps > 0
 
-            if linestyles[i] == '-': color = next(colors)
-            axes_tods.plot(
+            if linestyles[i] == "-": color = next(colors)
+            axes.plot(
                 f_mids[use],
                 binned_ps[use],
                 lw=1.4,
@@ -328,83 +426,30 @@ class Plotter:
                 linestyle=linestyles[i]
             )
             
-        fig_tods.suptitle(f"n_sub = {self.n_sub}")
-        axes_tods.set_xlabel('Frequency [Hz]')
-        axes_tods.set_ylabel(f"[{self.tod_truthmap.units}$^2$/Hz]")
-        axes_tods.set_xlim(f_mids.min(), f_mids.max())
-        axes_tods.loglog()
-        axes_tods.legend()
+        axes.set_xlabel("Frequency [Hz]")
+        axes.set_ylabel(f"[{self.tod_truthmap.units}$^2$/Hz]")
+        axes.set_xlim(f_mids.min(), f_mids.max())
+        axes.loglog()
+        axes.legend()
+
+        name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+        fig.suptitle(f"n_sub = {self.n_sub}{name}")
         
-        if self.plotsdir is None: plt.show()
+        if self.plotsdir is None: 
+            plt.show()
         else:
-            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_powerspectrum.png")
+            name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_power_spectrum.png")
             plt.close()
-        
         return
-    
-    def plotrecos(self, samples: jft.evi.Samples) -> None:
-        """
-        Plots comparison between maria and nifty reconstructions of the map with the true map.
         
-        Args:
-            samples (jft.evi.Samples): Samples to make comparison for.
-        """
-        from skimage.transform import resize
-
-        # Compare nifty vs maria
-        if self.padding_map > 0:
-            sig_map = jft.mean(tuple(self.gp_map(s)[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in samples)) # when splitting up in different field models
-        else:
-            sig_map = jft.mean(tuple(self.gp_map(s) for s in samples))
-
-        # mincol = -0.0012
-        # maxcol = 0.
-        mincol = None
-        maxcol = None
-
-        cmb_cmap = plt.get_cmap('cmb')
-        fig, axes = plt.subplots(3, 2, figsize=(16, 16))
-
-        im0 = axes[0,0].imshow( self.mapdata_truth , cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
-        axes[0,0].title.set_text('truth')
-        fig.colorbar(im0)
-
-        # im1 = axes[0,1].imshow(self.output_truthmap.data[0,0], cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
-        # fig.colorbar(im1)
-        # axes[0,1].title.set_text("Noisy image (Mapper output)")
-
-        slice_2d = self.output_map.data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
-        im2 = axes[1,0].imshow(slice_2d, cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
-        axes[1,0].title.set_text('maria mapper')
-        fig.colorbar(im2)
-
-        truth_rescaled = resize(self.mapdata_truth, slice_2d.shape, anti_aliasing=True)
-        im3 = axes[1,1].imshow((slice_2d - truth_rescaled), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
-        axes[1,1].title.set_text('maria - truth')
-        fig.colorbar(im3)
-
-        im3 = axes[2,0].imshow(sig_map, cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
-        axes[2,0].title.set_text('best fit image')
-        fig.colorbar(im3)
-
-        im4 = axes[2,1].imshow((sig_map - self.mapdata_truth), cmap=cmb_cmap, vmin=mincol, vmax=maxcol)
-        axes[2,1].title.set_text('best fit - truth')
-        fig.colorbar(im4)
-
-        if self.plotsdir is None: plt.show()
-        else:
-            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_reco_comp.png")
-            plt.close()
-        
-        return 
-        
-    def make_atmosphere_det_gif(self, samples: jft.evi.Samples, figname: str = 'atmosphere_comp.gif', tmax: int = -1, num_frames: int = 100) -> None:
+    def make_atmosphere_det_gif(self, samples: jft.evi.Samples, figname: str = "atmosphere_comp.gif", tmax: int = -1, num_frames: int = 100) -> None:
         """
         Makes gif of simplified atmosphere prediction and truth in 2D detector layout. Does nothing if self.fit_atmos == False.
         
         Args:
             samples (jft.evi.Samples): Samples to make atmosphere prediction plot for.
-            figname (str, optional): Location to save gif in. Defaults to 'atmosphere_comp.gif'
+            figname (str, optional): Location to save gif in. Defaults to "atmosphere_comp.gif"
             tmax (int, optional): Maximum timestep to consider. If -1, will loop over all timesteps. Defaults to -1.
             num_frames (int, optional): Number of total frames to plot. Defaults to 100.
         """
@@ -432,7 +477,7 @@ class Plotter:
             
             # Capture the plot as an image in memory
             buf = io.BytesIO()
-            plt.savefig(buf, format='png')
+            plt.savefig(buf, format="png")
             plt.close(fig)
             
             # Create an image from the buffer
@@ -466,11 +511,11 @@ class Plotter:
         
         from maria.units import Angle
 
-        cmb_cmap = plt.get_cmap('cmb')
+        cmb_cmap = plt.get_cmap("cmb")
         
         best_fit_atmos = ()
         for s in samples:
-            x_tod = {k: s[k] for k in s if 'comb' in k}
+            x_tod = {k: s[k] for k in s if "comb" in k}
             best_fit_atmos += (self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2], )
             
         best_fit_atmos = jft.mean(best_fit_atmos)
@@ -517,7 +562,7 @@ class Plotter:
 
         instrument = self.instrument
 
-        cmb_cmap = plt.get_cmap('cmb')
+        cmb_cmap = plt.get_cmap("cmb")
 
         test = Angle(instrument.dets.offsets)
         pos = getattr(test, test.units).T
