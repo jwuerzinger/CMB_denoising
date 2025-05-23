@@ -180,18 +180,19 @@ class FitHandler(Plotter, MariaSteering):
 
         n = self.instrument.n_dets
         for i in range(0, n, n//10 if n//10 != 0 else 1):
+            
             im0 = axes[0].plot(self.jax_tods_map[i], label=i)
 
             tods_map = np.float64(self.tod_truthmap.data['map'].compute())
             im1 = axes[1].plot(tods_map[i], label=i)
 
-            im2 = axes[2].plot(self.jax_tods_map[i] - tods_map[i], label=i)
+            im2 = axes[2].plot(self.jax_tods_map[i]/tods_map[i], label=i)
             
         axes[0].title.set_text(f'JAX map, TOD0-{i}')
         axes[0].legend()
         axes[1].title.set_text(f'True map, TOD0-{i}')
         axes[1].legend()
-        axes[2].title.set_text(f'jax map - true map, TOD0-{i}')
+        axes[2].title.set_text(f'jax map/true map, TOD0-{i}')
         axes[2].legend()
 
         if self.plotsdir is None: plt.show()
@@ -199,6 +200,35 @@ class FitHandler(Plotter, MariaSteering):
             plt.savefig(f"{self.plotsdir}/jax_map_agreement.png")
             plt.close()
 
+        from maria.mappers import BinMapper
+        mapper = BinMapper(self.scan_center,
+                    frame="ra_dec",
+                    width = self.maria_params['width']*2,
+                    # width= 0.1 if self.config == 'mustang' else 1.,
+                    height = self.maria_params['width']*2,
+                    # height= 0.1 if self.config == 'mustang' else 1.,
+                    resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
+                    tod_preprocessing={
+                            "window": {"name": "hamming"},
+                            "remove_modes": {"modes_to_remove": [0]},
+                            "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
+                        },
+                    map_postprocessing={
+                            "gaussian_filter": {"sigma": 1},
+                            "median_filter": {"size": 1},
+                        },
+                    units = "uK_RJ",
+                    )
+
+        import dask.array as da
+        # self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
+        self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
+        self.tod_truthmap.data['map'] = da.from_array(self.tod_truthmap.data['map'], chunks=(500, 500))
+        mapper.add_tods(self.tod_truthmap)
+        self.output_map = mapper.run()
+        
+        self.output_map.plot(filename=f"{self.plotsdir}/reco_maria_JAX.png")
+        
         self.jax_tods_atmos = self.tod_truthmap.data['atmosphere']
         # noised_jax_tod = np.float64(jax_tods_map) + np.float64(jax_tods_atmos) + np.float64(tod_truthmap.components['noise']*noiselevel)
 
@@ -499,7 +529,8 @@ class FitHandler(Plotter, MariaSteering):
         elif self.noiselevel == 0.1: delta = 1e-10
         elif self.noiselevel == 0.5: delta = 1e-10
         elif self.noiselevel == 1.0: 
-            if self.config == 'mustang': delta = 1e-4
+            # if self.config == 'mustang': delta = 1e-4
+            if self.config == 'mustang': delta = 1e-6
             else: delta = 1e-8
             print(f"Running with delta: {delta}")
 
