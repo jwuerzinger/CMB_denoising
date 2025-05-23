@@ -203,9 +203,9 @@ class FitHandler(Plotter, MariaSteering):
         from maria.mappers import BinMapper
         mapper = BinMapper(self.scan_center,
                     frame="ra_dec",
-                    width = self.maria_params['width']*2,
+                    width = self.maria_params['width'],
                     # width= 0.1 if self.config == 'mustang' else 1.,
-                    height = self.maria_params['width']*2,
+                    height = self.maria_params['width'],
                     # height= 0.1 if self.config == 'mustang' else 1.,
                     resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
                     tod_preprocessing={
