@@ -30,6 +30,9 @@ class MariaSteering:
                                         units=maria_params['units'] # Units of the input map 
                                     )
 
+        if self.config == 'atlast':
+            self.input_map.data = self.input_map.data *5e1
+
         self.input_map.to(units="K_RJ").plot()
 
         self.plan = maria.get_plan(scan_pattern="daisy", # scanning pattern
@@ -86,6 +89,10 @@ class MariaSteering:
             dx (array): Array with detector offsets in x-direction. Added by FitHandler.simulate().
             dy (array): Array with detector offsets in y-direction. Added by FitHandler.simulate().
         """
+        site = maria.get_site(self.maria_params['site'])
+        print(site)
+        site.plot()
+
         self.sim_truthmap = maria.Simulation(
             self.instrument, 
             plan=self.plan,
