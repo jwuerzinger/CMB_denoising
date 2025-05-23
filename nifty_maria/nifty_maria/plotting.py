@@ -17,11 +17,12 @@ class Plotter:
 
     def smooth_img(self, img):
         
-        sigma_rad = self.instrument.dets.fwhm[0]/ jnp.sqrt(8 * jnp.log(2))
-        sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
-        img_smoothed = gaussian_filter2d(img, sigma_pixels, radius=16)
-        
-        return img_smoothed
+        # sigma_rad = self.instrument.dets.fwhm[0]/ jnp.sqrt(8 * jnp.log(2))
+        # sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
+        # img_smoothed = gaussian_filter2d(img, sigma_pixels, radius=16)
+    
+        # return img_smoothed
+        return img
 
     def plot_callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
         """
@@ -31,6 +32,7 @@ class Plotter:
             samples (jft.evi.Samples): Samples to perform plots for.
             opt_state (OptimizeVIState): Optimisation state to plot.
         """
+        self.printfitresults(samples)
         self.plot_tod_agreement(samples, opt_state)
         self.plot_map_agreement(samples, opt_state)
         self.plot_atmos_simplified(samples, opt_state)
@@ -64,6 +66,38 @@ class Plotter:
         """
         res = jft.mean(tuple(self.signal_response_tod(s) for s in samples))
 
+        # Plot without noise:
+        fig, axes = plt.subplots(3, 1, figsize=(15, 10))
+
+        n_tods = 10
+        for i in np.linspace(0, self.noised_jax_tod.shape[0]-1, n_tods, dtype=int):
+            axes[0].plot(np.arange(0, res.shape[1]), res[i], label=f"tod {i}")
+            # axes[1].plot(np.arange(0, res.shape[1]), res[i] - self.noised_jax_tod[i], label=f"tod {i}")
+            # axes[2].plot(self.noised_jax_tod[i], label=f"tod {i}")
+            axes[1].plot(np.arange(0, res.shape[1]), res[i] - self.denoised_jax_tod[i], label=f"tod {i}")
+            axes[2].plot(self.denoised_jax_tod[i], label=f"tod {i}")
+
+        axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
+        axes[0].title.set_text("tods: mean")
+        axes[1].title.set_text("tods: mean - truth (no noise)")
+        axes[2].title.set_text("tods: truth (no noise)")
+
+        for ax in axes:
+            ax.set_xlim(0, res.shape[1])
+        for ax in axes[:-1]:
+            ax.tick_params(labelbottom=False)
+
+        name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+        fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+        if self.plotsdir is None: 
+            plt.show()
+        else:
+            name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+            plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_tod_agreement_denoised.png")
+            plt.close()
+          
+        # Plot with noise  
         fig, axes = plt.subplots(3, 1, figsize=(15, 10))
 
         n_tods = 10
@@ -74,8 +108,8 @@ class Plotter:
 
         axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
         axes[0].title.set_text("tods: mean")
-        axes[1].title.set_text("tods: mean - truth")
-        axes[2].title.set_text("tods: truth")
+        axes[1].title.set_text("tods: mean - truth (with noise)")
+        axes[2].title.set_text("tods: truth (with noise)")
 
         for ax in axes:
             ax.set_xlim(0, res.shape[1])
@@ -91,6 +125,7 @@ class Plotter:
             name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
             plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_tod_agreement.png")
             plt.close()
+        
         return
     
     def plot_map_agreement(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
@@ -410,7 +445,12 @@ class Plotter:
             labels += ["pred. atmos", "true atmos"]
             linestyles += ["-", "--"]
 
-        fig, axes = plt.subplots(1, 1, figsize=(16, 6))
+                
+        components += [self.tod_truthmap.data["noise"]]
+        labels += ["true noise"]
+        linestyles += ["--"]
+
+        fig, axes = plt.subplots(1, 1, figsize=(6, 6))
         for i in range(len(components)):
             
             f, ps = sp.signal.periodogram(components[i], fs=self.tod_truthmap.fs, window="tukey")
@@ -425,6 +465,7 @@ class Plotter:
             use = binned_ps > 0
 
             if linestyles[i] == "-": color = next(colors)
+            elif linestyles[i] == "true noise": color = next(colors)
             axes.plot(
                 f_mids[use],
                 binned_ps[use],
