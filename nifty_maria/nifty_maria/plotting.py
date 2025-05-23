@@ -465,7 +465,7 @@ class Plotter:
             use = binned_ps > 0
 
             if linestyles[i] == "-": color = next(colors)
-            elif linestyles[i] == "true noise": color = next(colors)
+            elif labels[i] == "true noise": color = next(colors)
             axes.plot(
                 f_mids[use],
                 binned_ps[use],
