@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+from astropy.wcs import WCS
 
 from nifty_maria.mapsampling_jax import sample_maps
 from nifty_maria.mapsampling_jax import gaussian_filter
@@ -157,10 +158,34 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-            images = (sig_mean, sig_mean - self.smooth_img(self.mapdata_truth), self.smooth_img(self.mapdata_truth))
-            titles = ("map: mean", "map: mean - truth (smoothed)", "map: truth (smoothed)")
+            images = (self.smooth_img(self.mapdata_truth), sig_mean, sig_mean - self.smooth_img(self.mapdata_truth))
+            titles = ("map: truth (smoothed)", "map: mean", "map: mean - truth (smoothed)")
 
-            fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+            # wcs = WCS(self.output_map.header)
+            
+            from maria.units import Quantity
+            from astropy.io import fits
+            
+            # X = np.r_[self.x_bins, self.y_bins]
+            X = np.r_[self.output_map.x_bins, self.output_map.y_bins]
+            
+            grid_u = Quantity(X, "rad").u
+            grid_center = Quantity(self.output_map.center, "rad")
+
+            header = fits.header.Header()
+            header["CDELT1"] = -grid_u["factor"]
+            header["CDELT2"] = grid_u["factor"]
+            header["CRPIX1"] = 1
+            header["CRPIX2"] = 1
+            header["CTYPE1"] = "RA---SIN"
+            header["CUNIT1"] = "deg     "
+            header["CTYPE2"] = "DEC--SIN"
+            header["CUNIT2"] = "deg     "
+            header["RADESYS"] = "FK5     "
+            header["CRVAL1"] = grid_center.deg[0]
+            header["CRVAL2"] = grid_center.deg[1]
+    
+            fig, axes = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': WCS(header)})
 
             for i in range(3):
                 im = axes[i].imshow(images[i], cmap=cmb_cmap)
@@ -170,8 +195,8 @@ class Plotter:
                 cax = div.append_axes("right", size="3%", pad="2%")
                 fig.colorbar(im, cax)
 
-            for ax in axes[1:]:
-                ax.tick_params(labelleft=False)
+            # for ax in axes[1:]:
+            #     ax.tick_params(labelleft=False)
 
             fig.tight_layout()
             name = f", iter: {opt_state.nit}" if opt_state is not None else ""
