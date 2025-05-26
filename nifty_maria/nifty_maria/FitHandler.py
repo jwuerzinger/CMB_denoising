@@ -174,7 +174,10 @@ class FitHandler(Plotter, MariaSteering):
         
         # Sample map with jax function and plot comparison
         # self.jax_tods_map = sample_maps(self.mapdata_truth, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
-        self.jax_tods_map = sample_maps(self.mapdata_truth, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
+        sigma_rad = self.instrument.dets.fwhm[0]/ np.sqrt(8 * np.log(2))
+        sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
+
+        self.jax_tods_map = sample_maps(self.mapdata_truth, self.instrument, self.offsets, sigma_pixels, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
@@ -539,7 +542,7 @@ class FitHandler(Plotter, MariaSteering):
             sample_mode = 'nonlinear_resample'
         elif fit_type == 'full':
             print("Running full fit!")
-            n_samples = 2
+            n_samples = 0
             sample_mode = "nonlinear_resample"
         else:
             raise ValueError(f"fit_type {fit_type} not supported!")
@@ -570,7 +573,11 @@ class FitHandler(Plotter, MariaSteering):
             ),
             kl_kwargs=dict( # shift transformed multivar gauss to best match true posterior
                 minimize_kwargs=dict(
+<<<<<<< Updated upstream
                     name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=self.nit_m, miniter=20 #TODO: softcode!
+=======
+                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=self.nit_m, miniter=200,
+>>>>>>> Stashed changes
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),

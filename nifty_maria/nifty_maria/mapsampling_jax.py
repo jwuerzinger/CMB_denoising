@@ -3,72 +3,105 @@ Module collecting loose set of jax-ified and jit-ed mapsampling functions.
 """
 
 import jax
+import numbers
 import jax.numpy as jnp
-from jax import lax
-from jax.scipy.signal import correlate2d
-jax.config.update("jax_enable_x64", True)
-
 from functools import partial
+from jax.scipy.signal import correlate
+from scipy.ndimage import _ni_support
 
-@partial(jax.jit, static_argnames=['radius'])
-def gaussian_kernel2d(sigma, radius):
-    '''
-    Re-implementation of scipy.ndimage.gaussian_kernel2d
+
+def vmap_correlate(input, weights, axis=-1, mode='same'):
+    """
+    Applies a 1D correlation to the input array along the specified axis using JAX's vmap.
+    """
+    input_moved = jnp.moveaxis(input, axis, -1)
+    input_flat = input_moved.reshape(-1, input_moved.shape[-1])
+    result_flat = jax.vmap(correlate, in_axes=(0, None, None))(input_flat, weights, mode)
+    result_moved = result_flat.reshape(input_moved.shape)
+    result = jnp.moveaxis(result_moved, -1, axis)
+    return result
+
+
+def _gaussian_kernel1d(sigma, order, radius):
+    """
+    Computes a 1-D Gaussian convolution kernel.
+    """
+    if order < 0:
+        raise ValueError('order must be non-negative')
+    exponent_range = jnp.arange(order + 1)
+    sigma2 = sigma * sigma
+    x = jnp.arange(-radius, radius+1)
+    phi_x = jnp.exp(-0.5 / sigma2 * x ** 2)
+    phi_x = phi_x / phi_x.sum()
+
+    if order == 0:
+        return phi_x
+    else:
+        # f(x) = q(x) * phi(x) = q(x) * exp(p(x))
+        # f'(x) = (q'(x) + q(x) * p'(x)) * phi(x)
+        # p'(x) = -1 / sigma ** 2
+        # Implement q'(x) + q(x) * p'(x) as a matrix operator and apply to the
+        # coefficients of q(x)
+        q = jnp.zeros(order + 1)
+        q[0] = 1
+        D = jnp.diag(exponent_range[1:], 1)  # D @ q(x) = q'(x)
+        P = jnp.diag(jnp.ones(order)/-sigma2, -1)  # P @ q(x) = q(x) * p'(x)
+        Q_deriv = D + P
+        for _ in range(order):
+            q = Q_deriv.dot(q)
+        q = (x[:, None] ** exponent_range).dot(q)
+        return q * phi_x
     
-    Parameters
-    ----------
-    sigma : float
-        standard deviation of the gaussian kernel
-    radius : int
-        radius of the kernel
 
-    Returns
-    -------
-    y : ndarray
-        2D gaussian kernel
-    '''
-    x, y = jnp.meshgrid(jnp.arange(-radius, radius+1),
-                        jnp.arange(-radius, radius+1))
-    dst = jnp.sqrt(x**2+y**2)
-    normal = 1/(2 * jnp.pi * sigma**2)
-    return jnp.exp(-(dst**2 / (2.0 * sigma**2))) * normal
- 
-@partial(jax.jit, static_argnames=['radius'])
-def gaussian_filter2d(x, sigma, radius=5):
-    '''
-    Re-implementation of scipy.ndimage.gaussian_filter2d
+def gaussian_filter1d(input, sigma, axis=-1, order=0, mode="constant", cval=0.0, truncate=4.0, *, radius=None):
+    """
+    1D-Gauss-Filter.
+    """
+    if mode != "constant" and cval != 0.0:
+        raise NotImplementedError("Only constant mode with cval=0.0 is implemented for now.")
 
-    Parameters
-    ----------
-    x : ndarray
-        2D array to be filtered
-    sigma : float
-        standard deviation of the gaussian kernel
-    radius : int
-        radius of the kernel. Should be something like `int(4*sigma + 0.5)`. Default is 5.
+    sd = float(sigma)
+    # make the radius of the filter equal to truncate standard deviations
+    lw = int(truncate * sd + 0.5)
+    if radius is not None:
+        lw = radius
+    if not isinstance(lw, numbers.Integral) or lw < 0:
+        raise ValueError('Radius must be a nonnegative integer.')
+    # Since we are calling correlate, not convolve, revert the kernel
+    weights = _gaussian_kernel1d(sigma, order, lw)[::-1]
+    return vmap_correlate(input, weights, axis, 'same')
     
-    Returns
-    -------
-    y : ndarray
-        2D gaussian filter
-    '''
-    def true_branch(x, sigma):
-        k = gaussian_kernel2d(sigma, radius)
-        y = correlate2d(x, k, 'same')
-        return y
 
-    def false_branch(x, sigma):
-        return x
+@partial(jax.jit, static_argnames=('sigma', 'order', 'mode', 'cval', 'truncate', 'radius', 'axes'))
+def gaussian_filter(input, sigma, order=0, mode="constant", cval=0.0, truncate=4.0, *, radius=None, axes=None):
+    """
+    Multidimensional Gaussian filter.
+    """
+    if mode != "constant" and cval != 0.0:
+        raise NotImplementedError("Only constant mode with cval=0.0 is implemented for now.")
 
-    return lax.cond(sigma > 0, true_branch, false_branch, x, sigma)
+    output = jnp.asarray(input)
 
-@partial(jax.jit, static_argnames=['instrument'])
-def sample_maps(sim_truthmap, instrument, offsets, resolution, x_side, y_side, pW_per_K_RJ):
+    axes = _ni_support._check_axes(axes, input.ndim)
 
-    # sigma_rad = instrument.dets.fwhm[0]/ jax.numpy.sqrt(8 * jax.numpy.log(2))
-    # sigma_pixels = sigma_rad/resolution
-    # sim_truthmap_smoothed = gaussian_filter2d(sim_truthmap, sigma_pixels, radius=16)
-    sim_truthmap_smoothed = sim_truthmap
+    num_axes = len(axes)
+    orders = _ni_support._normalize_sequence(order, num_axes)
+    sigmas = _ni_support._normalize_sequence(sigma, num_axes)
+    modes = _ni_support._normalize_sequence(mode, num_axes)
+    radiuses = _ni_support._normalize_sequence(radius, num_axes)
+    axes = [(axes[ii], sigmas[ii], orders[ii], modes[ii], radiuses[ii])
+            for ii in range(num_axes) if sigmas[ii] > 1e-15]
+    if len(axes) > 0:
+        for axis, sigma, order, mode, radius in axes:
+            output = gaussian_filter1d(output, sigma, axis, order, mode, cval, truncate, radius=radius)
+     
+    return output
+
+
+@partial(jax.jit, static_argnames=['instrument', 'sigma_pixels'])
+def sample_maps(sim_truthmap, instrument, offsets, sigma_pixels, x_side, y_side, pW_per_K_RJ):
+
+    sim_truthmap_smoothed = gaussian_filter(sim_truthmap, sigma=sigma_pixels)
     pbar = instrument.bands
 
     for band in pbar:
@@ -85,7 +118,7 @@ def sample_maps(sim_truthmap, instrument, offsets, resolution, x_side, y_side, p
         )((offsets[band_mask, ..., 1], offsets[band_mask, ..., 0]))
 
         loading = pW_per_K_RJ * samples_K_RJ
-
+    
     return loading
 
 

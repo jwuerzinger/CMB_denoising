@@ -10,19 +10,19 @@ from nifty8.re.optimize_kl import OptimizeVIState
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 from nifty_maria.mapsampling_jax import sample_maps
-from nifty_maria.mapsampling_jax import gaussian_filter2d
+from nifty_maria.mapsampling_jax import gaussian_filter
 
 class Plotter:
     """Subclass containing plotting functionalities."""
 
     def smooth_img(self, img):
-        
-        # sigma_rad = self.instrument.dets.fwhm[0]/ jnp.sqrt(8 * jnp.log(2))
-        # sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
-        # img_smoothed = gaussian_filter2d(img, sigma_pixels, radius=16)
+
+        sigma_rad = self.instrument.dets.fwhm[0]/ np.sqrt(8 * np.log(2))
+        sigma_pixels = float(sigma_rad/self.sim_truthmap.map.resolution)
+
+        img_smoothed = gaussian_filter(img, sigma_pixels)
     
-        # return img_smoothed
-        return img
+        return img_smoothed
 
     def plot_callback(self, samples: jft.evi.Samples, opt_state: OptimizeVIState) -> None:
         """
@@ -284,7 +284,7 @@ class Plotter:
             sig_maps = tuple(self.gp_map(s) for s in samples)
             if self.padding_map > 0:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
-            sig_mean, sig_std = jft.mean_and_std(sig_maps)
+            sig_mean, sig_std = jft.mean_and_std(sig_maps) if len(sig_maps) > 1 else jft.mean(sig_maps), 1
 
             sig_pull = (sig_mean - self.smooth_img(self.mapdata_truth)) / sig_std
 
@@ -377,14 +377,14 @@ class Plotter:
         if self.fit_atmos:
             fig, axes = plt.subplots(2, 1, figsize=(16, 6))
 
-            preds = []
+            preds = ()
             for x in samples:
                 x_tod = {k: x[k] for k in x if "comb" in k}
                 res_tods = self.gp_tod(x_tod)
 
-                preds += [res_tods[:, self.padding_atmos//2:-self.padding_atmos//2], ]
+                preds += (res_tods[:, self.padding_atmos//2:-self.padding_atmos//2], )
 
-            mean_atmos, std = jft.mean_and_std(tuple(preds))
+            mean_atmos = jft.mean(preds)
 
             n_tods = 10
             for i in np.linspace(0, self.noised_jax_tod.shape[0]-1, n_tods, dtype=int):
