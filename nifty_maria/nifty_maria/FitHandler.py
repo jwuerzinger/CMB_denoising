@@ -529,8 +529,7 @@ class FitHandler(Plotter, MariaSteering):
         elif self.noiselevel == 0.1: delta = 1e-10
         elif self.noiselevel == 0.5: delta = 1e-10
         elif self.noiselevel == 1.0: 
-            # if self.config == 'mustang': delta = 1e-4
-            if self.config == 'mustang': delta = 1e-6
+            if self.config == 'mustang': delta = 1e-8
             else: delta = 1e-8
             print(f"Running with delta: {delta}")
 
@@ -571,7 +570,7 @@ class FitHandler(Plotter, MariaSteering):
             ),
             kl_kwargs=dict( # shift transformed multivar gauss to best match true posterior
                 minimize_kwargs=dict(
-                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=self.nit_m
+                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=self.nit_m, miniter=20 #TODO: softcode!
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),
