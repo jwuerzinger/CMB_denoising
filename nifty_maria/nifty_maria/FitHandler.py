@@ -583,25 +583,42 @@ class FitHandler(Plotter, MariaSteering):
         
         return samples, state
     
-    def printfitresults(self, samples: jft.evi.Samples) -> None:
+    def printfitresults(self, samples: jft.evi.Samples, iter: int = None) -> None:
         """
         Prints optimised GP parameters and initial parameters for map and atmosphere GPs.
         
         Args:
             samples (jft.evi.Samples): Samples to print fit results for.
         """
-        print(f"Fit Results (res, init, std) for n_sub = {self.n_sub}")
+        def tee_print(msg: str, filepath: str, mode: str = 'a') -> None:
+            """
+            Prints msg and appends to file if mode is 'a', otherwise opens new file.
+            """
+            print(msg)
+            with open(filepath, mode) as f:
+                print(msg, file=f)
+            
+            return
+        
+        filepath = f"{self.plotsdir}/fitresults.log"
+        mode = 'w' if iter == 1 else 'a'
+        if iter is None:
+            tee_print(f"Fit Results (res, init, std) for n_sub = {self.n_sub}", filepath, mode)
+        else:
+            tee_print(f"Fit Results (res, init, std) for n_sub = {self.n_sub}, iter = {iter}", filepath, mode)
 
         if self.fit_atmos:
-            print("\nTODs:")
-            print(f"\tfluctuations: {jft.LogNormalPrior(*self.cf_fl_tod['fluctuations'])(samples.pos['combcf tod fluctuations'])}, {self.cf_fl_tod['fluctuations'][0]}, {self.cf_fl_tod['fluctuations'][1]}")
-            print(f"\tloglogvarslope: {jft.NormalPrior(*self.cf_fl_tod['loglogavgslope'])(samples.pos['combcf tod loglogavgslope'])}, {self.cf_fl_tod['loglogavgslope'][0]}, {self.cf_fl_tod['loglogavgslope'][1]}")
-            print(f"\tzeromode std (LogNormal): {jft.LogNormalPrior(*self.cf_zm_tod['offset_std'])(samples.pos['combcf zeromode'])}, {self.cf_zm_tod['offset_std'][0]}, {self.cf_zm_tod['offset_std'][1]}")
+            tee_print("\nTODs:", filepath)
+            tee_print(f"\tfluctuations: {jft.LogNormalPrior(*self.cf_fl_tod['fluctuations'])(samples.pos['combcf tod fluctuations'])}, {self.cf_fl_tod['fluctuations'][0]}, {self.cf_fl_tod['fluctuations'][1]}", filepath)
+            tee_print(f"\tloglogvarslope: {jft.NormalPrior(*self.cf_fl_tod['loglogavgslope'])(samples.pos['combcf tod loglogavgslope'])}, {self.cf_fl_tod['loglogavgslope'][0]}, {self.cf_fl_tod['loglogavgslope'][1]}", filepath)
+            tee_print(f"\tzeromode std (LogNormal): {jft.LogNormalPrior(*self.cf_zm_tod['offset_std'])(samples.pos['combcf zeromode'])}, {self.cf_zm_tod['offset_std'][0]}, {self.cf_zm_tod['offset_std'][1]}", filepath)
     
         if self.fit_map:
-            print("map:")
-            print(f"\tfluctuations: {jft.LogNormalPrior(*self.cf_fl_map['fluctuations'])(samples.pos['cfmapax1fluctuations'])}, {self.cf_fl_map['fluctuations'][0]}, {self.cf_fl_map['fluctuations'][1]}")
-            print(f"\tloglogvarslope: {jft.NormalPrior(*self.cf_fl_map['loglogavgslope'])(samples.pos['cfmapax1loglogavgslope'])}, {self.cf_fl_map['loglogavgslope'][0]}, {self.cf_fl_map['loglogavgslope'][1]}")
-            print(f"\tzeromode std (LogNormal): {jft.LogNormalPrior(*self.cf_zm_map['offset_std'])(samples.pos['cfmapzeromode'])}, {self.cf_zm_map['offset_std'][0]}, {self.cf_zm_map['offset_std'][1]}")
-         
+            tee_print("map:", filepath)
+            tee_print(f"\tfluctuations: {jft.LogNormalPrior(*self.cf_fl_map['fluctuations'])(samples.pos['cfmapax1fluctuations'])}, {self.cf_fl_map['fluctuations'][0]}, {self.cf_fl_map['fluctuations'][1]}", filepath)
+            tee_print(f"\tloglogvarslope: {jft.NormalPrior(*self.cf_fl_map['loglogavgslope'])(samples.pos['cfmapax1loglogavgslope'])}, {self.cf_fl_map['loglogavgslope'][0]}, {self.cf_fl_map['loglogavgslope'][1]}", filepath)
+            tee_print(f"\tzeromode std (LogNormal): {jft.LogNormalPrior(*self.cf_zm_map['offset_std'])(samples.pos['cfmapzeromode'])}, {self.cf_zm_map['offset_std'][0]}, {self.cf_zm_map['offset_std'][1]}", filepath)
+            
+        tee_print("", filepath)
+        
         return

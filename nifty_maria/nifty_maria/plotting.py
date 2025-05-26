@@ -33,12 +33,12 @@ class Plotter:
             opt_state (OptimizeVIState): Optimisation state to plot.
         """
         
-        self.printfitresults(samples)
+        iter = opt_state[0]
+        self.printfitresults(samples, iter)
         
         if len(samples) == 0:
             samples = (samples.pos,)
         
-        iter = opt_state[0]
         if iter % self.printevery != 0: return
         
         self.plot_tod_agreement(samples, opt_state)
