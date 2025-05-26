@@ -542,7 +542,7 @@ class FitHandler(Plotter, MariaSteering):
             sample_mode = 'nonlinear_resample'
         elif fit_type == 'full':
             print("Running full fit!")
-            n_samples = 0
+            n_samples = 2 # TODO: increase?!
             sample_mode = "nonlinear_resample"
         else:
             raise ValueError(f"fit_type {fit_type} not supported!")
@@ -573,11 +573,7 @@ class FitHandler(Plotter, MariaSteering):
             ),
             kl_kwargs=dict( # shift transformed multivar gauss to best match true posterior
                 minimize_kwargs=dict(
-<<<<<<< Updated upstream
                     name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=self.nit_m, miniter=20 #TODO: softcode!
-=======
-                    name="M", xtol=delta, cg_kwargs=dict(name=None), maxiter=self.nit_m, miniter=200,
->>>>>>> Stashed changes
                 )
             ),
             sample_mode=sample_mode, # how steps are combined (samples + nonlin + KL),

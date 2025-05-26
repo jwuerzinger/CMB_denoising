@@ -193,6 +193,8 @@ class Plotter:
             samples (jft.evi.Samples): Samples to plot fit results for.
             opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
         """
+        if len(samples) < 2: return
+        
         fig, axes = plt.subplots(3, 1, figsize=(15, 10))
 
         for k in range(0, 3):
@@ -233,6 +235,8 @@ class Plotter:
             samples (jft.evi.Samples): Samples to plot fit results for.
             opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
         """
+        if len(samples) < 2: return
+        
         if self.fit_map: 
             cmb_cmap = plt.get_cmap("cmb")
 
@@ -284,8 +288,7 @@ class Plotter:
             sig_maps = tuple(self.gp_map(s) for s in samples)
             if self.padding_map > 0:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
-            sig_mean, sig_std = jft.mean_and_std(sig_maps) if len(sig_maps) > 1 else jft.mean(sig_maps), 1
-
+            sig_mean, sig_std = jft.mean_and_std(sig_maps) if len(sig_maps) > 1 else (jft.mean(sig_maps), 1)
             sig_pull = (sig_mean - self.smooth_img(self.mapdata_truth)) / sig_std
 
             im = ax.imshow(sig_pull, cmap=cmb_cmap, vmin=-10, vmax=10)
