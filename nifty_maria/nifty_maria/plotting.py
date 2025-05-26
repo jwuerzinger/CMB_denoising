@@ -32,7 +32,15 @@ class Plotter:
             samples (jft.evi.Samples): Samples to perform plots for.
             opt_state (OptimizeVIState): Optimisation state to plot.
         """
+        
         self.printfitresults(samples)
+        
+        if len(samples) == 0:
+            samples = (samples.pos,)
+        
+        iter = opt_state[0]
+        if iter % self.printevery != 0: return
+        
         self.plot_tod_agreement(samples, opt_state)
         self.plot_map_agreement(samples, opt_state)
         self.plot_atmos_simplified(samples, opt_state)
@@ -46,6 +54,10 @@ class Plotter:
             samples (jft.evi.Samples): Samples to plot fit results for.
             opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
         """
+        
+        if len(samples) == 0:
+            samples = (samples.pos,)
+        
         self.plot_tod_agreement(samples, opt_state)
         self.plot_map_agreement(samples, opt_state)
         self.plot_tod_samples(samples, opt_state)
@@ -54,6 +66,7 @@ class Plotter:
         self.plot_map_comparison(samples, opt_state)
         self.plot_atmos_simplified(samples, opt_state)
         self.plot_power_spectrum(samples, opt_state)
+        
         return
 
     def plot_tod_agreement(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
@@ -310,11 +323,12 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-            output_map = self.output_map.data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
+
+            output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
             truth_rescaled = resize(self.smooth_img(self.mapdata_truth), output_map.shape, anti_aliasing=True)
 
             images = (
-                output_map, output_map - truth_rescaled, self.smooth_img(self.mapdata_truth),
+                output_map+truth_rescaled.mean(), output_map - (truth_rescaled-truth_rescaled.mean()), self.smooth_img(self.mapdata_truth),
                 sig_mean, sig_mean - self.smooth_img(self.mapdata_truth),
             )
             titles = (
