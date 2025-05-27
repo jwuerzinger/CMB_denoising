@@ -532,7 +532,7 @@ class FitHandler(Plotter, MariaSteering):
         elif self.noiselevel == 0.1: delta = 1e-10
         elif self.noiselevel == 0.5: delta = 1e-10
         elif self.noiselevel == 1.0: 
-            if self.config == 'mustang': delta = 1e-8
+            if self.config == 'mustang': delta = 1e-10
             else: delta = 1e-8
             print(f"Running with delta: {delta}")
 

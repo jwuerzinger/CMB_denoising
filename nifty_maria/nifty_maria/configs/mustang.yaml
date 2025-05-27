@@ -20,5 +20,5 @@ nifty_params:
   tod_loglog : [-2.45, 0.1]
   map_offset : [1.0e-8, 1.0e-7]
   map_fluct : [5.6e-5, 1.0e-6]
-  map_loglog : [-2.5, 0.1]
+  map_loglog : [-2.3, 0.1]
   downsampling_factor: 3
