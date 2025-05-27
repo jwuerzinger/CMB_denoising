@@ -542,7 +542,8 @@ class FitHandler(Plotter, MariaSteering):
             sample_mode = 'nonlinear_resample'
         elif fit_type == 'full':
             print("Running full fit!")
-            n_samples = 2 # TODO: increase?!
+            # n_samples = 2 # TODO: increase?!
+            n_samples = 0
             sample_mode = "nonlinear_resample"
         else:
             raise ValueError(f"fit_type {fit_type} not supported!")

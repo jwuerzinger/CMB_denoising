@@ -9,9 +9,11 @@ import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 from astropy.wcs import WCS
+from astropy.io import fits
 
 from nifty_maria.mapsampling_jax import sample_maps
 from nifty_maria.mapsampling_jax import gaussian_filter
+from maria.units import Quantity
 
 class Plotter:
     """Subclass containing plotting functionalities."""
@@ -160,13 +162,7 @@ class Plotter:
 
             images = (self.smooth_img(self.mapdata_truth), sig_mean, sig_mean - self.smooth_img(self.mapdata_truth))
             titles = ("map: truth (smoothed)", "map: mean", "map: mean - truth (smoothed)")
-
-            # wcs = WCS(self.output_map.header)
             
-            from maria.units import Quantity
-            from astropy.io import fits
-            
-            # X = np.r_[self.x_bins, self.y_bins]
             X = np.r_[self.output_map.x_bins, self.output_map.y_bins]
             
             grid_u = Quantity(X, "rad").u
@@ -186,19 +182,40 @@ class Plotter:
             header["CRVAL2"] = grid_center.deg[1]
     
             fig, axes = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': WCS(header)})
+            plt.subplots_adjust(wspace=0.5, left=0.05, right=0.95, top=0.95, bottom=0.1)
 
             for i in range(3):
-                im = axes[i].imshow(images[i], cmap=cmb_cmap)
+                im = axes[i].imshow(images[i], cmap=cmb_cmap, origin='lower')
                 axes[i].title.set_text(titles[i])
+                axes[i].set_xlabel('Right ascension (J2000)', fontsize=12)
+                axes[i].set_ylabel('Declination (J2000)', fontsize=12)
+
+                axes[i].tick_params(axis='x', which='both', top=False, bottom=True, labeltop=False, labelbottom=True)
+                axes[i].tick_params(axis='y', which='both', left=True, right=False, labelleft=True, labelright=False)
 
                 div = make_axes_locatable(axes[i])
                 cax = div.append_axes("right", size="3%", pad="2%")
-                fig.colorbar(im, cax)
+
+                # fig.colorbar(im, cax=cax, ax=axes[i])  # ← this is essential
+                # cb.set_label("Z-axis label", fontsize=12)
+                cb = fig.colorbar(im, cax=cax, ax=axes[i])  # assign to variable
+                cb.set_label(r"Stokes I 86.21 GHz ($K_{RJ}$)", fontsize=12)  
+                
+                cax.tick_params(axis='x', which='both', top=False, labeltop=False, right=False)
+                cax.tick_params(axis='y', which='both', left=False, right=True, labelright=True)
+
+            # for i in range(3):
+            #     im = axes[i].imshow(images[i], cmap=cmb_cmap)
+            #     axes[i].title.set_text(titles[i])
+
+            #     div = make_axes_locatable(axes[i])
+            #     cax = div.append_axes("right", size="3%", pad="2%")
+            #     fig.colorbar(im, cax)
 
             # for ax in axes[1:]:
             #     ax.tick_params(labelleft=False)
 
-            fig.tight_layout()
+            # fig.tight_layout()
             name = f", iter: {opt_state.nit}" if opt_state is not None else ""
             fig.suptitle(f"n_sub = {self.n_sub}{name}")
 
