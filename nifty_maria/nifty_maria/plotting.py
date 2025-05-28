@@ -181,11 +181,16 @@ class Plotter:
             images = (self.smooth_img(self.mapdata_truth), sig_mean, sig_mean - self.smooth_img(self.mapdata_truth))
             titles = ("map: truth (smoothed)", "map: mean", "map: mean - truth (smoothed)")
 
+            vmin = np.min(self.smooth_img(self.mapdata_truth))
+            vmax = np.max(self.smooth_img(self.mapdata_truth))
+            vmins = (vmin, vmin, None)
+            vmaxs = (vmax, vmax, None)
+
             fig, axes = plt.subplots(1, 3, figsize=(16, 5))
             plt.subplots_adjust(wspace=0.3, left=0.01, right=0.93, top=0.95, bottom=0.01)
 
             for i in range(3):
-                im = axes[i].imshow(images[i], cmap=cmb_cmap)
+                im = axes[i].imshow(images[i], cmap=cmb_cmap, vmin=vmins[i], vmax=vmaxs[i])
                 axes[i].title.set_text(titles[i])
                 axes[i].tick_params(axis='x', which='both', top=False, bottom=False, labeltop=False, labelbottom=False)
                 axes[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
@@ -367,7 +372,7 @@ class Plotter:
             sig_mean = jft.mean(sig_maps)
 
 
-            output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
+            output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)].compute()
             truth_rescaled = resize(self.smooth_img(self.mapdata_truth), output_map.shape, anti_aliasing=True)
 
             images = (
@@ -379,6 +384,19 @@ class Plotter:
                 "nifty mean", "nifty mean - truth (smoothed)",
             )
             
+            vmin = jnp.min(self.smooth_img(self.mapdata_truth))
+            vmin_comp = jnp.min(jnp.array([jnp.min(output_map - (truth_rescaled-truth_rescaled.mean())), jnp.min(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmax = jnp.max(self.smooth_img(self.mapdata_truth))
+            vmax_comp = jnp.max(jnp.array([jnp.max(output_map - (truth_rescaled-truth_rescaled.mean())), jnp.max(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmins = (
+                vmin, vmin_comp, vmin,
+                vmin, vmin_comp
+            )
+            vmaxs = (
+                vmax, vmax_comp, vmax,
+                vmax, vmax_comp
+            )
+            
             fig = plt.figure(figsize=(15, 10))
             plt.subplots_adjust(wspace=0.3, left=0.01, right=0.93, top=0.95, bottom=0.01)
 
@@ -386,7 +404,7 @@ class Plotter:
             for i in range(5):
                 axes.append(fig.add_subplot(2, 3, i+1))
 
-                im = axes[-1].imshow(images[i], cmap=cmb_cmap)
+                im = axes[-1].imshow(images[i], cmap=cmb_cmap, vmin=vmins[i], vmax=vmaxs[i])
                 axes[-1].title.set_text(titles[i])
                 axes[i].tick_params(axis='x', which='both', top=False, bottom=False, labeltop=False, labelbottom=False)
                 axes[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
@@ -430,14 +448,11 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-
-            # output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
             map_filename = "../simulated/mustang-2_20.fits"
             hdu = fits.open(map_filename)
             smoothed_data = scipy.ndimage.gaussian_filter(hdu[0].data, sigma=1)
             smoothed_data = np.flip(smoothed_data, axis=1)
             # resize to match nifty:
-            # smoothed_data = smoothed_data[len(smoothed_data)//4:-len(smoothed_data)//4,len(smoothed_data)//4:-len(smoothed_data)//4]
             smoothed_data = smoothed_data[31:-31, 31:-31]
             truth_rescaled = resize(self.smooth_img(self.mapdata_truth), smoothed_data.shape, anti_aliasing=True)
 
@@ -450,6 +465,19 @@ class Plotter:
                 "nifty mean", "nifty mean - truth (smoothed)",
             )
             
+            vmin = jnp.min(self.smooth_img(self.mapdata_truth))
+            vmin_comp = jnp.min(jnp.array([jnp.min(smoothed_data - truth_rescaled), jnp.min(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmax = jnp.max(self.smooth_img(self.mapdata_truth))
+            vmax_comp = jnp.max(jnp.array([jnp.max(smoothed_data - truth_rescaled), jnp.max(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmins = (
+                vmin, vmin_comp, vmin,
+                vmin, vmin_comp
+            )
+            vmaxs = (
+                vmax, vmax_comp, vmax,
+                vmax, vmax_comp
+            )
+            
             fig = plt.figure(figsize=(15, 10))
             plt.subplots_adjust(wspace=0.3, left=0.01, right=0.93, top=0.95, bottom=0.01)
 
@@ -457,7 +485,7 @@ class Plotter:
             for i in range(5):
                 axes.append(fig.add_subplot(2, 3, i+1))
 
-                im = axes[-1].imshow(images[i], cmap=cmb_cmap)
+                im = axes[-1].imshow(images[i], cmap=cmb_cmap, vmin=vmins[i], vmax=vmaxs[i])
                 axes[-1].title.set_text(titles[i])
                 axes[i].tick_params(axis='x', which='both', top=False, bottom=False, labeltop=False, labelbottom=False)
                 axes[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
