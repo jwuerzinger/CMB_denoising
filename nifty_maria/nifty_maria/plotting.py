@@ -3,11 +3,13 @@ Module to colloct plotting functions for nifty-maria fits.
 """
 
 import numpy as np
+import scipy.ndimage
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+from astropy.io import fits
 
 from nifty_maria.mapsampling_jax import sample_maps
 from nifty_maria.mapsampling_jax import gaussian_filter
@@ -64,6 +66,7 @@ class Plotter:
         self.plot_map_samples(samples, opt_state)
         self.plot_map_pullplot(samples, opt_state)
         self.plot_map_comparison(samples, opt_state)
+        self.plot_map_comparison_maxLH(samples, opt_state)
         self.plot_atmos_simplified(samples, opt_state)
         self.plot_power_spectrum(samples, opt_state)
         
@@ -90,13 +93,13 @@ class Plotter:
 
         axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
         axes[0].title.set_text("tods: mean")
-        axes[0].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+        axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
         axes[1].title.set_text("tods: mean - truth (no noise)")
-        axes[1].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+        axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
         axes[2].title.set_text("tods: truth (no noise)")
-        axes[2].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+        axes[2].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
 
-        custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], (self.maria_params['duration']+1))
+        custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
         custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
         for ax in axes: ax.set_xticks(custom_ticks)
         axes[2].set_xticklabels(custom_labels)
@@ -129,13 +132,13 @@ class Plotter:
 
         axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
         axes[0].title.set_text("tods: mean")
-        axes[0].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+        axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
         axes[1].title.set_text("tods: mean - truth (with noise)")
-        axes[1].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+        axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
         axes[2].title.set_text("tods: truth (with noise)")
-        axes[2].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+        axes[2].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
 
-        custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], (self.maria_params['duration']+1))
+        custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
         custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
         for ax in axes: ax.set_xticks(custom_ticks)
         axes[2].set_xticklabels(custom_labels)
@@ -232,9 +235,9 @@ class Plotter:
 
             axes[k].title.set_text(f"tod {idxk}: samples and mean")
             axes[k].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
-            axes[k].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+            axes[k].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
 
-        custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], (self.maria_params['duration']+1))
+        custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
         custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
         for ax in axes: ax.set_xticks(custom_ticks)
         axes[2].set_xticklabels(custom_labels)
@@ -410,6 +413,77 @@ class Plotter:
                 plt.close()
         return
     
+    def plot_map_comparison_maxLH(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plot comparison of the optimised maps with maria fit and truth.
+
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
+        if self.fit_map:
+            from skimage.transform import resize
+            cmb_cmap = plt.get_cmap("cmb")
+
+            sig_maps = tuple(self.gp_map(s) for s in samples)
+            if self.padding_map > 0:
+                sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
+            sig_mean = jft.mean(sig_maps)
+
+
+            # output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)]
+            map_filename = "../simulated/mustang-2_20.fits"
+            hdu = fits.open(map_filename)
+            smoothed_data = scipy.ndimage.gaussian_filter(hdu[0].data, sigma=1)
+            smoothed_data = np.flip(smoothed_data, axis=1)
+            # resize to match nifty:
+            # smoothed_data = smoothed_data[len(smoothed_data)//4:-len(smoothed_data)//4,len(smoothed_data)//4:-len(smoothed_data)//4]
+            smoothed_data = smoothed_data[31:-31, 31:-31]
+            truth_rescaled = resize(self.smooth_img(self.mapdata_truth), smoothed_data.shape, anti_aliasing=True)
+
+            images = (
+                smoothed_data, smoothed_data - truth_rescaled, self.smooth_img(self.mapdata_truth),
+                sig_mean, sig_mean - self.smooth_img(self.mapdata_truth),
+            )
+            titles = (
+                "max. Likelihood map", "max. Likelihood - truth (smoothed)", "truth (smoothed)",
+                "nifty mean", "nifty mean - truth (smoothed)",
+            )
+            
+            fig = plt.figure(figsize=(15, 10))
+            plt.subplots_adjust(wspace=0.3, left=0.01, right=0.93, top=0.95, bottom=0.01)
+
+            axes = []
+            for i in range(5):
+                axes.append(fig.add_subplot(2, 3, i+1))
+
+                im = axes[-1].imshow(images[i], cmap=cmb_cmap)
+                axes[-1].title.set_text(titles[i])
+                axes[i].tick_params(axis='x', which='both', top=False, bottom=False, labeltop=False, labelbottom=False)
+                axes[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
+
+                div = make_axes_locatable(axes[i])
+                cax = div.append_axes("right", size="3%", pad="2%")
+                cb = fig.colorbar(im, cax)
+                cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+
+                if i % 2 != 0:
+                    axes[-1].tick_params(labelleft=False)
+                if i < 4:
+                    axes[-1].tick_params(labelbottom=False)
+
+            # fig.tight_layout()
+            name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+            fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+            if self.plotsdir is None: 
+                plt.show()
+            else:
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_map_comparison_maxLH.png")
+                plt.close()
+        return
+    
     def plot_atmos_simplified(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
         """
         Plots simplified atmosphere predictions made by optimised GP and compares with truth.
@@ -438,11 +512,11 @@ class Plotter:
 
             axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
             axes[0].title.set_text("simplified atmos: mean & truth (no noise)")
-            axes[0].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+            axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
             axes[1].title.set_text("simplified atmos: mean - truth (no noise)")
-            axes[1].set_ylabel(r"Power [$\mathrm{pW}$]", fontsize=12)
+            axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
 
-            custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], (self.maria_params['duration']+1))
+            custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
             custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
             for ax in axes: ax.set_xticks(custom_ticks)
             axes[1].set_xticklabels(custom_labels)
