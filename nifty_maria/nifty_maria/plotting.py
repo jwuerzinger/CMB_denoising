@@ -65,6 +65,7 @@ class Plotter:
         self.plot_tod_samples(samples, opt_state)
         self.plot_map_samples(samples, opt_state)
         self.plot_map_pullplot(samples, opt_state)
+        self.plot_map_stdev(samples, opt_state)
         self.plot_map_comparison(samples, opt_state)
         self.plot_map_comparison_maxLH(samples, opt_state)
         self.plot_atmos_simplified(samples, opt_state)
@@ -351,6 +352,46 @@ class Plotter:
             else:
                 name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
                 plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_map_pullplot.png")
+                plt.close()
+        return
+    
+    def plot_map_stdev(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plots pull plot of the map `= (mean - truth) / std`.
+        
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
+        if self.fit_map: 
+            cmb_cmap = plt.get_cmap("cmb")
+
+            fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+
+            sig_maps = tuple(self.gp_map(s) for s in samples)
+            if self.padding_map > 0:
+                sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
+            sig_mean, sig_std = jft.mean_and_std(sig_maps) if len(sig_maps) > 1 else (jft.mean(sig_maps), 1)
+            # sig_pull = (sig_mean - self.smooth_img(self.mapdata_truth)) / sig_std
+
+            im = ax.imshow(sig_std, cmap=cmb_cmap)
+            ax.title.set_text(f"map: Std. Dev.")
+            ax.tick_params(axis='x', which='both', top=False, bottom=False, labeltop=False, labelbottom=False)
+            ax.tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
+
+            div = make_axes_locatable(ax)
+            cax = div.append_axes("right", size="3%", pad="2%")
+            cb = fig.colorbar(im, cax)
+            cb.set_label(r"$\sigma$", fontsize=12)
+
+            name = f", iter: {opt_state.nit}" if opt_state is not None else ""
+            fig.suptitle(f"n_sub = {self.n_sub}{name}")
+
+            if self.plotsdir is None: 
+                plt.show()
+            else:
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_map_stdev.png")
                 plt.close()
         return
     
