@@ -6,6 +6,7 @@ import numpy as np
 import scipy.ndimage
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+plt.style.use('dark_background')
 import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
@@ -45,6 +46,8 @@ class Plotter:
         
         self.plot_tod_agreement(samples, opt_state)
         self.plot_map_agreement(samples, opt_state)
+        self.plot_map_stdev(samples, opt_state)
+        self.plot_map_pullplot(samples, opt_state)
         self.plot_atmos_simplified(samples, opt_state)
         return
 
