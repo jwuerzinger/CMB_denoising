@@ -117,7 +117,8 @@ def sample_maps(sim_truthmap, instrument, offsets, sigma_pixels, x_side, y_side,
             method="linear",
         )((offsets[band_mask, ..., 1], offsets[band_mask, ..., 0]))
 
-        loading = pW_per_K_RJ * samples_K_RJ
+        # loading = pW_per_K_RJ * samples_K_RJ
+        loading = samples_K_RJ
     
     return loading
 

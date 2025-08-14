@@ -33,10 +33,14 @@ class MariaSteering:
                                         units=maria_params['units'] # Units of the input map 
                                     )
 
+        if self.config == 'mustang':
+            self.input_map.data = self.input_map.data *5e1
+
         if self.config == 'atlast':
             self.input_map.data = self.input_map.data *5e1
 
         self.input_map.to(units="K_RJ").plot()
+        plt.savefig(fname=f"{self.plotsdir}/input_map.png")
 
         self.plan = maria.get_plan(scan_pattern="daisy", # scanning pattern
                                 scan_options=maria_params['scan_options'], # in degrees
