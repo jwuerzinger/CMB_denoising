@@ -177,11 +177,11 @@ class FitHandler(Plotter, MariaSteering):
         sigma_rad = self.instrument.dets.fwhm[0]/ np.sqrt(8 * np.log(2))
         sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
 
-        self.jax_tods_map = sample_maps(self.mapdata_truth, self.instrument, self.offsets, sigma_pixels, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
+        self.jax_tods_map = sample_maps(self.mapdata_truth, self.instrument, self.offsets, float(sigma_pixels), jnp.array(self.sim_truthmap.map.x_side), jnp.array(self.sim_truthmap.map.y_side), jnp.array(self.pW_per_K_RJ))
 
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
-        n = self.instrument.n_dets
+        n = self.instrument.n
         for i in range(0, n, n//10 if n//10 != 0 else 1):
             
             im0 = axes[0].plot(self.jax_tods_map[i], label=i)
@@ -210,7 +210,7 @@ class FitHandler(Plotter, MariaSteering):
                     # width= 0.1 if self.config == 'mustang' else 1.,
                     height = self.maria_params['width'],
                     # height= 0.1 if self.config == 'mustang' else 1.,
-                    resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
+                    resolution=self.instrument.dets.fwhm.deg[0]/4.,
                     tod_preprocessing={
                             "window": {"name": "hamming"},
                             "remove_modes": {"modes_to_remove": [0]},
@@ -230,7 +230,9 @@ class FitHandler(Plotter, MariaSteering):
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
-        self.output_map.plot(filename=f"{self.plotsdir}/reco_maria_JAX.png")
+        # self.output_map.plot(filename=f"{self.plotsdir}/reco_maria_JAX.png")
+        self.output_map.plot()
+        plt.savefig(fname=f"{self.plotsdir}/reco_maria_JAX.png")
         
         self.jax_tods_atmos = self.tod_truthmap.data['atmosphere']
         # noised_jax_tod = np.float64(jax_tods_map) + np.float64(jax_tods_atmos) + np.float64(tod_truthmap.components['noise']*noiselevel)
@@ -418,9 +420,9 @@ class FitHandler(Plotter, MariaSteering):
             )
             gp_tod = cfm_tod.finalize()
 
-            if self.n_sub == -1: n_tod = self.instrument.n_dets
+            if self.n_sub == -1: n_tod = self.instrument.n
             else: 
-                if self.n_sub > self.instrument.n_dets: raise ValueError(f"ERROR: self.n_sub = {self.n_sub} is not allowed to be larger than self.instrument.n_dets = {self.instrument.n_dets}!")
+                if self.n_sub > self.instrument.n: raise ValueError(f"ERROR: self.n_sub = {self.n_sub} is not allowed to be larger than self.instrument.n = {self.instrument.n}!")
                 n_tod = self.n_sub
 
                 self.gp_tod = jft.VModel(gp_tod, n_tod, in_axes='combcf xi')
@@ -432,7 +434,7 @@ class FitHandler(Plotter, MariaSteering):
             if self.config == 'atlast':
                 self.dims_map = (1024 + self.padding_map, 1024 + self.padding_map)
             else:
-                self.dims_map = (1000 + self.padding_map, 1000 + self.padding_map)
+                self.dims_map = (1024 + self.padding_map, 1024 + self.padding_map)
 
             # Map model
             self.cf_zm_map = dict(offset_mean=self.mapdata_truth.mean(), offset_std=self.params['map_offset']) # TODO: fix offset in map to 0

@@ -18,7 +18,10 @@ class MariaSteering:
         maria_params = self.confdict['maria_params']
         self.maria_params = maria_params
         self.scan_center = tuple(maria_params['scan_center'])
-        map_filename = maria.io.fetch(maria_params['map_filename'])
+        if self.config == 'mustang':
+            map_filename = maria.io.fetch(maria_params['map_filename'])
+        else:
+            map_filename = maria_params['map_filename']
         # load in the map from a fits file
         
         self.input_map = maria.map.load(filename=map_filename, #filename
@@ -95,27 +98,33 @@ class MariaSteering:
 
         self.sim_truthmap = maria.Simulation(
             self.instrument, 
-            plan=self.plan,
+            plans=self.plan,
             site= self.maria_params['site'],
             map=self.input_map,
             atmosphere="2d",
         )
 
-        self.tod_truthmap = self.sim_truthmap.run()
+        self.tod_truthmap = self.sim_truthmap.run()[0]
         
         # Plot TODs:
         self.tod_truthmap.plot()
-        self.offsets = self.sim_truthmap.coords.offsets(frame=self.sim_truthmap.map.frame, center=self.sim_truthmap.map.center)
+        self.offsets = self.sim_truthmap.obs_list[0].coords.offsets(frame=self.sim_truthmap.map.frame,
+                                                                    center=(self.sim_truthmap.map.center[0].rad, self.sim_truthmap.map.center[1].rad))
         
         spectrum_kwargs = {
-                "spectrum": self.sim_truthmap.atmosphere.spectrum,
-                "zenith_pwv": self.sim_truthmap.atmosphere.weather.pwv,
-                "base_temperature": self.sim_truthmap.atmosphere.weather.temperature[0],
-                "elevation": self.sim_truthmap.coords.el
+                "spectrum": self.sim_truthmap.obs_list[0].atmosphere.spectrum,
+                "zenith_pwv": self.sim_truthmap.obs_list[0].atmosphere.weather.pwv,
+                "base_temperature": self.sim_truthmap.obs_list[0].atmosphere.weather.temperature[0],
+                "elevation": self.sim_truthmap.obs_list[0].coords.el
         }
         
         band = self.instrument.bands[0] # TODO: should actually vmap over bands!
+        
         self.pW_per_K_RJ = 1e12 * k_B * band.compute_nu_integral(**spectrum_kwargs)
+
+        # Ad hoc fix for atmosphere & noise units:
+        self.tod_truthmap.data['atmosphere'] *= self.pW_per_K_RJ
+        self.tod_truthmap.data['noise'] *= self.pW_per_K_RJ
         
         return 
     
@@ -176,7 +185,7 @@ class MariaSteering:
                     # width= 0.1 if self.config == 'mustang' else 1.,
                     height = self.maria_params['width'],
                     # height= 0.1 if self.config == 'mustang' else 1.,
-                    resolution=np.degrees(np.nanmin(self.instrument.dets.fwhm[0]))/4.,
+                    resolution=self.instrument.dets.fwhm.deg[0]/4.,
                     tod_preprocessing={
                             "window": {"name": "hamming"},
                             "remove_modes": {"modes_to_remove": [0]},
@@ -210,6 +219,8 @@ class MariaSteering:
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
-        self.output_map.plot(filename=f"{self.plotsdir}/reco_maria.png")
+        # self.output_map.plot(filename=f"{self.plotsdir}/reco_maria.png")
+        self.output_map.plot()
+        plt.savefig(fname=f"{self.plotsdir}/reco_maria.png")
         
         return

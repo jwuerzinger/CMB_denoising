@@ -6,7 +6,7 @@ import numpy as np
 import scipy.ndimage
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-plt.style.use('dark_background')
+# plt.style.use('dark_background')
 import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
@@ -203,6 +203,10 @@ class Plotter:
                 cax = div.append_axes("right", size="3%", pad="2%")
                 cb = fig.colorbar(im, cax)
                 cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+                
+                # contour line:
+                levels = [-0.0017, -0.0011, -0.00025]
+                axes[i].contour(images[i], levels=levels, colors='white', linewidths=1)
 
             for ax in axes[1:]:
                 ax.tick_params(labelleft=False)
@@ -441,6 +445,11 @@ class Plotter:
                 vmax, vmax_comp
             )
             
+            plotcontour = [
+                True, False, True,
+                True, False
+            ]
+            
             fig = plt.figure(figsize=(15, 10))
             plt.subplots_adjust(wspace=0.3, left=0.01, right=0.93, top=0.95, bottom=0.01)
 
@@ -457,6 +466,10 @@ class Plotter:
                 cax = div.append_axes("right", size="3%", pad="2%")
                 cb = fig.colorbar(im, cax)
                 cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+
+                # contour line:
+                levels = [-0.0017, -0.0011, -0.00025]
+                if plotcontour[i]: axes[i].contour(images[i], levels=levels, colors='white', linewidths=1)
 
                 if i % 2 != 0:
                     axes[-1].tick_params(labelleft=False)
@@ -500,6 +513,10 @@ class Plotter:
             smoothed_data = smoothed_data[31:-31, 31:-31]
             truth_rescaled = resize(self.smooth_img(self.mapdata_truth), smoothed_data.shape, anti_aliasing=True)
 
+            print("AVERAGE DELTA:")
+            print("NIFTY:", np.mean(sig_mean - self.smooth_img(self.mapdata_truth)))
+            print("maxLH:", np.mean(smoothed_data - truth_rescaled))
+
             images = (
                 smoothed_data, smoothed_data - truth_rescaled, self.smooth_img(self.mapdata_truth),
                 sig_mean, sig_mean - self.smooth_img(self.mapdata_truth),
@@ -522,6 +539,11 @@ class Plotter:
                 vmax, vmax_comp
             )
             
+            plotcontour = [
+                True, False, True,
+                True, False
+            ]
+            
             fig = plt.figure(figsize=(15, 10))
             plt.subplots_adjust(wspace=0.3, left=0.01, right=0.93, top=0.95, bottom=0.01)
 
@@ -538,6 +560,10 @@ class Plotter:
                 cax = div.append_axes("right", size="3%", pad="2%")
                 cb = fig.colorbar(im, cax)
                 cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+
+                # contour line:
+                levels = [-0.0017, -0.0011, -0.00025]
+                if plotcontour[i]: axes[i].contour(images[i], levels=levels, colors='white', linewidths=1)
 
                 if i % 2 != 0:
                     axes[-1].tick_params(labelleft=False)
@@ -637,7 +663,8 @@ class Plotter:
                 gp_map_nopad = jft.mean(tuple(self.gp_map(s) for s in samples))
 
             # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
-            res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
+            sigma_pixels = self.instrument.dets.fwhm[0]/self.sim_truthmap.map.resolution/np.sqrt(8*np.log(2))
+            res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, sigma_pixels, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
             
             components += [res_map, self.tod_truthmap.data["map"]]
             labels += ["pred. map", "true map"]
