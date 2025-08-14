@@ -33,8 +33,8 @@ class MariaSteering:
                                         units=maria_params['units'] # Units of the input map 
                                     )
 
-        if self.config == 'mustang':
-            self.input_map.data = self.input_map.data *5e1
+        # if self.config == 'mustang':
+        #     self.input_map.data = self.input_map.data *5e1
 
         if self.config == 'atlast':
             self.input_map.data = self.input_map.data *5e1
@@ -127,8 +127,8 @@ class MariaSteering:
         self.pW_per_K_RJ = 1e12 * k_B * band.compute_nu_integral(**spectrum_kwargs)
 
         # Ad hoc fix for atmosphere & noise units:
-        self.tod_truthmap.data['atmosphere'] *= self.pW_per_K_RJ
-        self.tod_truthmap.data['noise'] *= self.pW_per_K_RJ
+        # self.tod_truthmap.data['atmosphere'] *= self.pW_per_K_RJ
+        # self.tod_truthmap.data['noise'] *= self.pW_per_K_RJ
         
         return 
     

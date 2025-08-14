@@ -97,11 +97,11 @@ class Plotter:
 
         axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
         axes[0].title.set_text("tods: mean")
-        axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+        axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
         axes[1].title.set_text("tods: mean - truth (no noise)")
-        axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+        axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
         axes[2].title.set_text("tods: truth (no noise)")
-        axes[2].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+        axes[2].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
 
         custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
         custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
@@ -136,11 +136,11 @@ class Plotter:
 
         axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
         axes[0].title.set_text("tods: mean")
-        axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+        axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
         axes[1].title.set_text("tods: mean - truth (with noise)")
-        axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+        axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
         axes[2].title.set_text("tods: truth (with noise)")
-        axes[2].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+        axes[2].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
 
         custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
         custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
@@ -248,7 +248,7 @@ class Plotter:
 
             axes[k].title.set_text(f"tod {idxk}: samples and mean")
             axes[k].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
-            axes[k].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+            axes[k].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
 
         custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
         custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
@@ -610,9 +610,9 @@ class Plotter:
 
             axes[0].legend(bbox_to_anchor=(1.01, 1), loc="upper left")
             axes[0].title.set_text("simplified atmos: mean & truth (no noise)")
-            axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+            axes[0].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
             axes[1].title.set_text("simplified atmos: mean - truth (no noise)")
-            axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{pW}$]", fontsize=12)
+            axes[1].set_ylabel(r"$I_{\nu}$ [$\mathrm{K}_\mathrm{RJ}$]", fontsize=12)
 
             custom_ticks = np.linspace(0., self.maria_params['duration']*self.maria_params['sample_rate'], min((self.maria_params['duration']+1), 16))
             custom_labels = [f"{t/self.maria_params['sample_rate']:.2f}" for t in custom_ticks]
