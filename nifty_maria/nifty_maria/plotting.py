@@ -206,6 +206,7 @@ class Plotter:
                 
                 # contour line:
                 levels = [-0.0017, -0.0011, -0.00025]
+                # levels = [-0.008, -0.004, -0.0015]
                 axes[i].contour(images[i], levels=levels, colors='white', linewidths=1)
 
             for ax in axes[1:]:
@@ -469,6 +470,7 @@ class Plotter:
 
                 # contour line:
                 levels = [-0.0017, -0.0011, -0.00025]
+                # levels = [-0.008, -0.004, -0.0015]
                 if plotcontour[i]: axes[i].contour(images[i], levels=levels, colors='white', linewidths=1)
 
                 if i % 2 != 0:
@@ -563,6 +565,7 @@ class Plotter:
 
                 # contour line:
                 levels = [-0.0017, -0.0011, -0.00025]
+                # levels = [-0.008, -0.004, -0.0015]
                 if plotcontour[i]: axes[i].contour(images[i], levels=levels, colors='white', linewidths=1)
 
                 if i % 2 != 0:
@@ -721,7 +724,7 @@ class Plotter:
             )
             
         axes.set_xlabel("Frequency [Hz]")
-        axes.set_ylabel(f"[{self.tod_truthmap.units}$^2$/Hz]")
+        axes.set_ylabel(f"[${self.tod_truthmap.units}^2/Hz$]")
         axes.set_xlim(f_mids.min(), f_mids.max())
         axes.loglog()
         axes.legend()
@@ -865,7 +868,7 @@ class Plotter:
         if self.n_sub > 0:
             for i in range(len(self.masklist)):
                 col[self.masklist[i]] = i+1
-        else: col = np.linspace(0, 1, self.instrument.n_dets)
+        else: col = np.linspace(0, 1, self.instrument.dets.n)
 
         fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=160)
 
