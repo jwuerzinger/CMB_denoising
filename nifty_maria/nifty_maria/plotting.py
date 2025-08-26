@@ -511,7 +511,7 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
-            map_filename = "../simulated/mustang-2_20.fits"
+            map_filename = "../simulated/mustang-2_final_20.fits"
             hdu = fits.open(map_filename)
             smoothed_data = scipy.ndimage.gaussian_filter(hdu[0].data, sigma=1)
             smoothed_data = np.flip(smoothed_data, axis=1)
@@ -978,12 +978,19 @@ class Plotter:
                 sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
             sig_mean = jft.mean(sig_maps)
 
+            map_filename = "../simulated/mustang-2_final_20.fits"
+            hdu = fits.open(map_filename)
+            smoothed_data = scipy.ndimage.gaussian_filter(hdu[0].data, sigma=1)
+            smoothed_data = np.flip(smoothed_data, axis=1)
+            # resize to match nifty:
+            smoothed_data = smoothed_data[31:-31, 31:-31]
+            truth_rescaled = resize(self.smooth_img(self.mapdata_truth), smoothed_data.shape, anti_aliasing=True)
 
-            output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)].compute()
-            truth_rescaled = resize(self.smooth_img(self.mapdata_truth), output_map.shape, anti_aliasing=True)
+            # output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)].compute()
+            # truth_rescaled = resize(self.smooth_img(self.mapdata_truth), output_map.shape, anti_aliasing=True)
 
             images = (
-                output_map+truth_rescaled.mean(), output_map - (truth_rescaled-truth_rescaled.mean()), self.smooth_img(self.mapdata_truth),
+                smoothed_data, smoothed_data - truth_rescaled, self.smooth_img(self.mapdata_truth),
                 sig_mean, sig_mean - self.smooth_img(self.mapdata_truth),
             )
             titles = (
@@ -992,9 +999,9 @@ class Plotter:
             )
             
             vmin = jnp.min(self.smooth_img(self.mapdata_truth))
-            vmin_comp = jnp.min(jnp.array([jnp.min(output_map - (truth_rescaled-truth_rescaled.mean())), jnp.min(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmin_comp = jnp.min(jnp.array([jnp.min(smoothed_data - (truth_rescaled-truth_rescaled.mean())), jnp.min(sig_mean - self.smooth_img(self.mapdata_truth))]))
             vmax = jnp.max(self.smooth_img(self.mapdata_truth))
-            vmax_comp = jnp.max(jnp.array([jnp.max(output_map - (truth_rescaled-truth_rescaled.mean())), jnp.max(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmax_comp = jnp.max(jnp.array([jnp.max(smoothed_data - (truth_rescaled-truth_rescaled.mean())), jnp.max(sig_mean - self.smooth_img(self.mapdata_truth))]))
             vmins = (
                 vmin, vmin_comp, vmin,
                 vmin, vmin_comp
