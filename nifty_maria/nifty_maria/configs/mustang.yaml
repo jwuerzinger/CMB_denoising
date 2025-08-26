@@ -15,10 +15,13 @@ maria_params:
   # units: mJy/pixel
   units: Jy/pixel
 nifty_params:
-  noiseval: 1.6e-4
-  tod_offset : [2.4e-4, 2.3e-4]
-  tod_fluct : [0.006, 0.001]
+  # noiseval: 1.6e-4
+  noiseval: 0.0062
   tod_loglog : [-2.45, 0.1]
+  # tod_offset : [2.4e-4, 2.3e-4]
+  # tod_fluct : [0.006, 0.001]
+  tod_offset : [1.0, 0.2]
+  tod_fluct : [0.25, 0.05]
   map_offset : [1.0e-8, 1.0e-7]
   map_fluct : [5.6e-5, 1.0e-6]
   map_loglog : [-2.3, 0.1]

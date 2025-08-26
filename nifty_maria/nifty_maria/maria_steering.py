@@ -33,8 +33,8 @@ class MariaSteering:
                                         units=maria_params['units'] # Units of the input map 
                                     )
 
-        # if self.config == 'mustang':
-        #     self.input_map.data = self.input_map.data *5e1
+        if self.config == 'mustang':
+            self.input_map.data = self.input_map.data/8.
 
         if self.config == 'atlast':
             self.input_map.data = self.input_map.data *5e1

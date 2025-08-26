@@ -6,6 +6,8 @@ import numpy as np
 import scipy.ndimage
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+plt.rcParams.update({'font.size': 14})
+plt.rc('legend', fontsize=12)
 # plt.style.use('dark_background')
 import nifty8.re as jft
 from nifty8.re.optimize_kl import OptimizeVIState
@@ -73,6 +75,7 @@ class Plotter:
         self.plot_map_comparison_maxLH(samples, opt_state)
         self.plot_atmos_simplified(samples, opt_state)
         self.plot_power_spectrum(samples, opt_state)
+        self.make_paper_plot(samples, opt_state)
         
         return
 
@@ -202,7 +205,8 @@ class Plotter:
                 div = make_axes_locatable(axes[i])
                 cax = div.append_axes("right", size="3%", pad="2%")
                 cb = fig.colorbar(im, cax)
-                cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+                # cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+                cb.set_label(r"Intensity [$K_{RJ}$]")
                 
                 # contour line:
                 levels = [-0.0017, -0.0011, -0.00025]
@@ -287,7 +291,7 @@ class Plotter:
         if self.fit_map: 
             cmb_cmap = plt.get_cmap("cmb")
 
-            fig, axes = plt.subplots(1, len(samples), figsize=(len(samples)*5, 5))
+            fig, axes = plt.subplots(1, len(samples), figsize=(len(samples)*6, 5))
             plt.subplots_adjust(wspace=0.3, left=0.01, right=0.93, top=0.95, bottom=0.01)
 
             sig_maps = tuple(self.gp_map(s) for s in samples)
@@ -298,22 +302,22 @@ class Plotter:
             vmax = max(s.max() for s in sig_maps)
 
             for i,s in enumerate(sig_maps):
-                im = axes[i].imshow(s, cmap=cmb_cmap, vmin=vmin, vmax=vmax)
-                axes[i].title.set_text(f"map: sample {i}")
+                im = axes[i].imshow(s*1e6, cmap=cmb_cmap, vmin=vmin*1e6, vmax=vmax*1e6)
+                # axes[i].title.set_text(f"map: sample {i}")
                 axes[i].tick_params(axis='x', which='both', top=False, bottom=False, labeltop=False, labelbottom=False)
                 axes[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
 
                 div = make_axes_locatable(axes[i])
                 cax = div.append_axes("right", size="3%", pad="2%")
                 cb = fig.colorbar(im, cax)
-                cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+                cb.set_label(r"Intensity [$\mu K_{RJ}$]")
 
             for ax in axes[1:]:
                 ax.tick_params(labelleft=False)
 
             # fig.tight_layout()
             name = f", iter: {opt_state.nit}" if opt_state is not None else ""
-            fig.suptitle(f"n_sub = {self.n_sub}{name}")
+            # fig.suptitle(f"n_sub = {self.n_sub}{name}")
 
             if self.plotsdir is None: 
                 plt.show()
@@ -466,7 +470,7 @@ class Plotter:
                 div = make_axes_locatable(axes[i])
                 cax = div.append_axes("right", size="3%", pad="2%")
                 cb = fig.colorbar(im, cax)
-                cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+                cb.set_label(r"Intensity [$K_{RJ}$]")
 
                 # contour line:
                 levels = [-0.0017, -0.0011, -0.00025]
@@ -561,7 +565,7 @@ class Plotter:
                 div = make_axes_locatable(axes[i])
                 cax = div.append_axes("right", size="3%", pad="2%")
                 cb = fig.colorbar(im, cax)
-                cb.set_label(r"Intensity [$K_{RJ}$]", fontsize=12)
+                cb.set_label(r"Intensity [$K_{RJ}$]")
 
                 # contour line:
                 levels = [-0.0017, -0.0011, -0.00025]
@@ -956,3 +960,174 @@ class Plotter:
         ax.set_ylim(cen_y - radius - margin, cen_y + radius + margin)
         
         return 
+    
+    def make_paper_plot(self, samples: jft.evi.Samples, opt_state: OptimizeVIState = None) -> None:
+        """
+        Plot comparison of the optimised maps with maria fit and truth.
+
+        Args:
+            samples (jft.evi.Samples): Samples to plot fit results for.
+            opt_state (OptimizeVIState, optional): Optimisation state to plot. Defaults to None.
+        """
+        if self.fit_map:
+            from skimage.transform import resize
+            cmb_cmap = plt.get_cmap("cmb")
+
+            sig_maps = tuple(self.gp_map(s) for s in samples)
+            if self.padding_map > 0:
+                sig_maps = tuple(s[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2] for s in sig_maps)
+            sig_mean = jft.mean(sig_maps)
+
+
+            output_map = self.output_map.to(units="K_RJ").data[(0,) * (self.output_map.data.ndim - 2) + (...,)].compute()
+            truth_rescaled = resize(self.smooth_img(self.mapdata_truth), output_map.shape, anti_aliasing=True)
+
+            images = (
+                output_map+truth_rescaled.mean(), output_map - (truth_rescaled-truth_rescaled.mean()), self.smooth_img(self.mapdata_truth),
+                sig_mean, sig_mean - self.smooth_img(self.mapdata_truth),
+            )
+            titles = (
+                "maria mapper", "maria - truth (smoothed)", "truth (smoothed)",
+                "nifty mean", "nifty mean - truth (smoothed)",
+            )
+            
+            vmin = jnp.min(self.smooth_img(self.mapdata_truth))
+            vmin_comp = jnp.min(jnp.array([jnp.min(output_map - (truth_rescaled-truth_rescaled.mean())), jnp.min(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmax = jnp.max(self.smooth_img(self.mapdata_truth))
+            vmax_comp = jnp.max(jnp.array([jnp.max(output_map - (truth_rescaled-truth_rescaled.mean())), jnp.max(sig_mean - self.smooth_img(self.mapdata_truth))]))
+            vmins = (
+                vmin, vmin_comp, vmin,
+                vmin, vmin_comp
+            )
+            vmaxs = (
+                vmax, vmax_comp, vmax,
+                vmax, vmax_comp
+            )
+            
+            plotcontour = [
+                True, False, True,
+                True, False
+            ]
+            
+            # fig = plt.figure(figsize=(15, 10))
+            fig = plt.figure(figsize=(18, 9))
+            plt.subplots_adjust(wspace=0.4, left=0.01, right=0.93, top=0.99, bottom=0.08)
+
+            axes = []
+            for i in range(5):
+                axes.append(fig.add_subplot(2, 3, i+1))
+
+                im = axes[-1].imshow(images[i]*1e6, cmap=cmb_cmap, vmin=vmins[i]*1e6, vmax=vmaxs[i]*1e6)
+                # axes[-1].title.set_text(titles[i])
+                axes[i].tick_params(axis='x', which='both', top=False, bottom=False, labeltop=False, labelbottom=False)
+                axes[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
+
+                div = make_axes_locatable(axes[i])
+                cax = div.append_axes("right", size="3%", pad="2%")
+                cb = fig.colorbar(im, cax)
+                cb.set_label(r"Intensity [$\mu K_{RJ}$]")
+
+                # contour line:
+                levels = [-0.0017*1e6, -0.0011*1e6, -0.00025*1e6]
+                # levels = [-0.008, -0.004, -0.0015]
+                if plotcontour[i]: axes[i].contour(images[i]*1e6, levels=levels, colors='white', linewidths=1)
+
+                if i % 2 != 0:
+                    axes[-1].tick_params(labelleft=False)
+                if i < 4:
+                    axes[-1].tick_params(labelbottom=False)
+
+            # axes.append(fig.add_subplot(2, 3, 6))
+            # axes[-1].plot(np.linspace(0,1,20), np.linspace(0,1,20))
+
+            # Add powespectrum plot in last panel:
+            import scipy as sp
+            from itertools import cycle
+
+            colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+
+            components = []
+            labels = []
+            linestyles = []
+            axes.append(fig.add_subplot(2, 3, 6))
+
+            if self.fit_map:
+                if self.padding_map > 0:
+                    # gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))[:, :, self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+                    gp_map_nopad = jft.mean(tuple(self.gp_map(s) for s in samples))[self.padding_map//2:-self.padding_map//2, self.padding_map//2:-self.padding_map//2]
+                else:
+                    # gp_map_nopad = jnp.broadcast_to(jft.mean(tuple(self.gp_map(s) for s in samples)), (1, 1, self.dims_map[0], self.dims_map[1]))
+                    gp_map_nopad = jft.mean(tuple(self.gp_map(s) for s in samples))
+
+                # res_map = sample_maps(gp_map_nopad, self.dx, self.dy, self.sim_truthmap.map.resolution, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side)
+                sigma_pixels = self.instrument.dets.fwhm[0]/self.sim_truthmap.map.resolution/np.sqrt(8*np.log(2))
+                res_map = sample_maps(gp_map_nopad, self.instrument, self.offsets, sigma_pixels, self.sim_truthmap.map.x_side, self.sim_truthmap.map.y_side, self.pW_per_K_RJ)
+                
+                components += [res_map, self.tod_truthmap.data["map"]]
+                labels += ["pred. map", "true map"]
+                linestyles += ["-", "--"]
+
+            if self.fit_atmos:
+                
+                res_tods = ()
+                for s in samples:
+                    x_tod = {k: s[k] for k in s if "comb" in k}
+                    res_tod = self.gp_tod(x_tod)[:, self.padding_atmos//2:-self.padding_atmos//2]
+                    res_tod = jnp.repeat(res_tod, self.downsampling_factor)[None, :]
+                    res_tods += (res_tod,)
+                    
+                res_tods = jft.mean(res_tods)
+                
+                components += [res_tods, self.tod_truthmap.data["atmosphere"]]
+                labels += ["pred. atmos", "true atmos"]
+                linestyles += ["-", "--"]
+
+                    
+            # Add noise:
+            components += [self.tod_truthmap.data["noise"]]
+            labels += ["true noise"]
+            linestyles += ["--"]
+            # Add truth:
+            components += [jft.mean(tuple(self.signal_response_tod(s) for s in samples))]
+            labels += ["pred. total"]
+            linestyles += ["-"]
+
+            # fig, axes = plt.subplots(1, 1, figsize=(6, 6))
+            for i in range(len(components)):
+            
+                f, ps = sp.signal.periodogram(components[i]*1e6, fs=self.tod_truthmap.fs, window="tukey")
+
+                f_bins = np.geomspace(f[1], f[-1], 256)
+                f_mids = np.sqrt(f_bins[1:] * f_bins[:-1])
+
+                binned_ps = sp.stats.binned_statistic(
+                    f, ps.mean(axis=0), bins=f_bins, statistic="mean"
+                )[0]
+
+                use = binned_ps > 0
+
+                if linestyles[i] == "-": color = next(colors)
+                elif labels[i] == "true noise": color = next(colors)
+                axes[-1].plot(
+                    f_mids[use],
+                    binned_ps[use],
+                    lw=1.4,
+                    color=color,
+                    label=labels[i],
+                    linestyle=linestyles[i]
+                )
+    
+             
+            axes[-1].set_xlabel("Frequency [Hz]")
+            axes[-1].set_ylabel(r"[$\mu K_{RJ}^2/Hz$]")
+            axes[-1].set_xlim(f_mids.min(), f_mids.max())
+            axes[-1].loglog()
+            axes[-1].legend(loc='upper right')
+
+            if self.plotsdir is None: 
+                plt.show()
+            else:
+                name = f"nit_{opt_state.nit}" if opt_state is not None else "final"
+                plt.savefig(f"{self.plotsdir}/nsub_{self.n_sub}_{name}_paperplot.png")
+                plt.close()
+        return
