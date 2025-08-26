@@ -230,6 +230,8 @@ class FitHandler(Plotter, MariaSteering):
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
+        # Save TOD_truthmap:
+        self.tod_truthmap.to_fits(f"{self.plotsdir}/tod_truthmap_JAX.fits")
         # self.output_map.plot(filename=f"{self.plotsdir}/reco_maria_JAX.png")
         self.output_map.plot()
         plt.savefig(fname=f"{self.plotsdir}/reco_maria_JAX.png")
