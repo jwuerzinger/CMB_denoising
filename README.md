@@ -64,3 +64,4 @@ They may be outdated. Also check: maria/docs/source/tutorials for up-to-date tut
 
 - maria: https://arxiv.org/abs/2402.10731
 - NIFTy.re: https://arxiv.org/abs/2402.16683
+- preprint conference proceeding: https://github.com/jwuerzinger/nifty_maria_paper
