@@ -2,7 +2,7 @@
 
 Repo for reconstruction and denoising of (simulated) (sub-mm) observatios of ground-based single-dish telescopes. This repo uses [maria](https://thomaswmorris.com/maria/index.html) for telescope simulations and the [JAX](https://docs.jax.dev/en/latest/index.html)-based  re-envisioned [NIFTy.re](https://ift.pages.mpcdf.de/nifty/).
 
-If you're using this repo for your own research, please cite **ADD LINK TO PAPER HERE**.
+If you're using this repo for your own research, please cite https://arxiv.org/abs/2509.01600.
 
 Don't hesitate to reach out to me directly or open an issue in case you spot any issues!
 
