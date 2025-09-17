@@ -19,7 +19,7 @@ cpu_deps = pixi_config.get("feature.cpu.dependencies", {})
 deps.update(cpu_deps)
 gpu_deps = pixi_config.get("feature.gpu.dependencies", {})
 deps.update(gpu_deps)
-gpu_sys_req = pixi_config-get("feature.gpu.system-requirements", {})
+gpu_sys_req = pixi_config.get("feature.gpu.system-requirements", {})
 
 import_name_map = {
     "scikit-image": "skimage"
