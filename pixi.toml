@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 pytest = ">=8.4.2,<9"
+pip = ">=25.2,<26"
 
 [feature.cpu.dependencies]
 numpy = ">=2.3.2,<3"

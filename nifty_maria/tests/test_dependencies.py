@@ -2,10 +2,7 @@ import pytest
 import sys
 import importlib
 import tomllib
-
-import tomllib
-import importlib
-import pytest
+import re
 import pathlib
 
 base_dir = pathlib.Path(__file__).resolve().parents[2]
@@ -15,11 +12,9 @@ with pixi_file.open("rb") as f:
     pixi_config = tomllib.load(f)
 
 deps = pixi_config.get("dependencies", {}).copy()
-cpu_deps = pixi_config.get("feature.cpu.dependencies", {})
-deps.update(cpu_deps)
-gpu_deps = pixi_config.get("feature.gpu.dependencies", {})
-deps.update(gpu_deps)
-gpu_sys_req = pixi_config.get("feature.gpu.system-requirements", {})
+deps.update(pixi_config.get("feature.cpu.dependencies", {}))
+deps.update(pixi_config.get("feature.gpu.dependencies", {}))
+deps.update(pixi_config.get("feature.gpu.system-requirements", {}))
 
 import_name_map = {
     "scikit-image": "skimage"
@@ -27,7 +22,7 @@ import_name_map = {
 
 dependencies = {import_name_map.get(k, k): v for k, v in deps.items()}
 
-print(dependencies)
+dependencies["maria"] = ">=1.4.1"
 
 def version_tuple(version_str):
     return tuple(int(x) for x in version_str.split(".") if x.isdigit())
@@ -54,6 +49,7 @@ def satisfies(version, spec):
         return False
 
 @pytest.mark.parametrize("pkg_name,spec", [(k, v) for k, v_range in dependencies.items() for v in v_range.split(",")])
+
 def test_dependency_versions(pkg_name, spec):
     pkg = importlib.import_module(pkg_name)
     version_str = getattr(pkg, "__version__", None)
