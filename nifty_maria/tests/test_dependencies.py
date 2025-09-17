@@ -6,8 +6,12 @@ import tomllib
 import tomllib
 import importlib
 import pytest
+import pathlib
 
-with open("CMB_denoising/pixi.toml", "rb") as f:
+base_dir = pathlib.Path(__file__).resolve().parents[2]
+pixi_file = base_dir / "pixi.toml"
+
+with pixi_file.open("rb") as f:
     pixi_config = tomllib.load(f)
 
 deps = pixi_config.get("dependencies", {}).copy()
