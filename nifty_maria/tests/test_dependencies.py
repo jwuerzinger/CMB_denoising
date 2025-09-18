@@ -22,8 +22,6 @@ import_name_map = {
 
 dependencies = {import_name_map.get(k, k): v for k, v in deps.items()}
 
-dependencies["maria"] = ">=1.4.1"
-
 def version_tuple(version_str):
     return tuple(int(x) for x in version_str.split(".") if x.isdigit())
 
