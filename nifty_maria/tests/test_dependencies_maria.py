@@ -7,7 +7,7 @@ import pathlib
 
 base_dir = pathlib.Path(__file__).resolve().parents[2]
 
-maria_file = base_dir / "maria" / "pyproject.toml"
+maria_file = base_dir.parent / "pyproject.toml"
 with maria_file.open("rb") as f:
     maria_config = tomllib.load(f)
 
