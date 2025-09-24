@@ -60,6 +60,8 @@ def satisfies(version, spec):
     else:
         return False
 
+all_deps = {**cmb_deps, **maria_deps}
+
 def test_version_specs_consistent():
     """Fail if maria and CMB_denoising disagree on version specs."""
     common = set(cmb_deps.keys()) & set(maria_deps.keys())
