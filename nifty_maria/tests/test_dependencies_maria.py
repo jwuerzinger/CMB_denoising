@@ -5,7 +5,9 @@ import tomllib
 import re
 import pathlib
 
-maria_file = base_dir / "pyproject.toml"
+base_dir = pathlib.Path(__file__).resolve().parents[2]
+
+maria_file = base_dir / "maria" / "pyproject.toml"
 with maria_file.open("rb") as f:
     maria_config = tomllib.load(f)
 
@@ -17,7 +19,6 @@ for dep in maria_config["project"]["dependencies"]:
         name = name.strip()
         maria_deps[name] = spec.strip() if spec else ""
 
-base_dir = pathlib.Path(__file__).resolve().parents[2]
 pixi_file = base_dir / "pixi.toml"
 
 with pixi_file.open("rb") as f:
