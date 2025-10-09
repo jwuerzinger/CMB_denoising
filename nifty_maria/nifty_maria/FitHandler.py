@@ -116,7 +116,7 @@ class FitHandler(Plotter, MariaSteering):
         self.noiselevel = noiselevel
         
         # Read config file:
-        if config == 'mustang' or config == 'atlast':
+        if config == 'mustang' or config == 'atlast' or config == 'test':
             base_dir = os.path.dirname(__file__)
             full_path = os.path.join(base_dir, f"configs/{config}.yaml")
             with open(full_path, "r") as file:

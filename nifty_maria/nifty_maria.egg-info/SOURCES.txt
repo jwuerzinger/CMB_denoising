@@ -12,3 +12,4 @@ nifty_maria.egg-info/SOURCES.txt
 nifty_maria.egg-info/dependency_links.txt
 nifty_maria.egg-info/requires.txt
 nifty_maria.egg-info/top_level.txt
+tests/test_dependencies_maria.py

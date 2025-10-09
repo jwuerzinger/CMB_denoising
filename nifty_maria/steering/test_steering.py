@@ -13,18 +13,17 @@ def parse_comma_separated(ctx, param, value):
     return []
 
 @click.command(help=__doc__)
-@click.option('--config', default='atlast', help='Config for fit. Supported values are: "atlast", "mustang" or the path to a custom steering yaml. Defaults to atlast.')
+@click.option('--config', default='test', help='Config for fit. Supported values are: "atlast", "mustang" or the path to a custom steering yaml. Defaults to atlast.')
 @click.option('--fit_atmos', default=True, type=bool, help='Boolean for fitting atmosphere. Defaults to True.')
 @click.option('--fit_map', default=True, type=bool, help='Boolean for fitting map. Defaults to True.')
-@click.option('--nit_glob', default=30, type=int, help='Number of global iterations. Defaults to 30.')
-@click.option('--nit_sl', default=2000, type=int, help='Maximum number of linear sampling iterations per global iteration. Defaults to 2000.')
-@click.option('--nit_sn', default=20, type=int, help='Maximum number of nonlinear sampling iterations per global iteration. Defaults to 20.')
-@click.option('--nit_m', default=200, type=int, help='Maximum number of minimisation iterations per global iteration. Defaults to 200.')
-@click.option('--printevery', default=5, type=int, help='Number of global iterations between plotting & printing results. Defaults to 5.')
+@click.option('--nit_glob', default=1, type=int, help='Number of global iterations. Defaults to 30.')
+@click.option('--nit_sl', default=1, type=int, help='Maximum number of linear sampling iterations per global iteration. Defaults to 2000.')
+@click.option('--nit_sn', default=1, type=int, help='Maximum number of nonlinear sampling iterations per global iteration. Defaults to 20.')
+@click.option('--nit_m', default=1, type=int, help='Maximum number of minimisation iterations per global iteration. Defaults to 200.')
+@click.option('--printevery', default=1, type=int, help='Number of global iterations between plotting & printing results. Defaults to 5.')
 @click.option('--cudadevice', default='3', type=str, help='CUDA device to run on. Defaults to "3".')
-@click.option('--n_splits', callback=parse_comma_separated, default=None, help='List of splits to run over. Defaults to None, resulting in [0, 1, 2, 3, 4, 5, 6, 7, -1] for mustang.')
-def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery, cudadevice, n_splits):
-    if config not in ['mustang', 'atlast']: raise ValueError("Unsupported config provided! Please choose between mustang/atlast.")
+def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery, cudadevice):
+    if config not in ['mustang', 'atlast', 'test']: raise ValueError("Unsupported config provided! Please choose between mustang/atlast.")
 
     os.environ['CUDA_VISIBLE_DEVICES'] = cudadevice
 
@@ -47,7 +46,7 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
     # Run Jax sampling & configure inputs for GP
     fit.sample_jax_tods(use_truth_slope=False)
 
-    n_splits =[0]
+    n_splits = [0]
 
     fit.init_gps(n_split=n_splits[0])
     firstiter = True
