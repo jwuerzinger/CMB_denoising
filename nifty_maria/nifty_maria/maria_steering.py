@@ -125,9 +125,6 @@ class MariaSteering:
         
         band = self.instrument.bands[0] # TODO: should actually vmap over bands!
 
-        import inspect
-        print("Band loaded from:", inspect.getfile(Band))
-
         self.pW_per_K_RJ = 1e12 * k_B * band.compute_nu_integral(**spectrum_kwargs)
 
         # Ad hoc fix for atmosphere & noise units:
