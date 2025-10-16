@@ -125,7 +125,7 @@ class MariaSteering:
         
         band = self.instrument.bands[0] # TODO: should actually vmap over bands!
 
-        self.pW_per_K_RJ = 1e12 * k_B * band.compute_nu_integral(**spectrum_kwargs)
+        self.pW_per_K_RJ = 1e12 * k_B * band.compute_transmission_integral(**spectrum_kwargs)
 
         # Ad hoc fix for atmosphere & noise units:
         # self.tod_truthmap.data['atmosphere'] *= self.pW_per_K_RJ
