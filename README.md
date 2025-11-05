@@ -19,7 +19,7 @@ git clone --recurse-submodules https://github.com/jwuerzinger/CMB_denoising.git
 ```
 if you want to authenticate with https.
 
-### Pip install
+### Using Pip Install
 
 I will conserve my conda environment and supply automated installation instructions here, once the server lets me..
 Until then, please follow these manual instructions:
@@ -39,7 +39,7 @@ Next, install this package with:
 pip install -e nifty_maria/
 ```
 
-### Pixi install
+### Using Pixi Install
 First, install pixi using
 ```bash
 curl -fsSL https://pixi.sh/install.sh | sh
@@ -76,7 +76,7 @@ export PIXI_ENV=gpu
 
 ## Running
 
-### For pip
+### For Pip
 
 After installing, you can use the steering script in [nifty_maria/steering/steering_full.py](nifty_maria/steering/steering_full.py).
 To do this, simply call:
@@ -90,7 +90,7 @@ The value for `BOOL` is either `True` or `False`, depending on whether you want 
 
 This script starts with a reconstruction of two gaussian process-based correlated field models: One two-dimensional model for the map and one one-dimensional model for the atmosphere TOD directly. The array is then automatically split horizontally/vertically, thus doubling the numbers of modelled atmosphere TODs `n_sub` with every iterations, until `n_sub=64` for AtLAST and `n_sub=128` for MUSTANG-2. In the case of MUSTANG-2, a final step in the fit is performed where every detector's atmosphere TOD response is modelled individually.
 
-### For pixi
+### For Pixi
 Whenever running a script, the pixi shell needs to be activated:
 ```bash
 pixi shell
