@@ -22,6 +22,7 @@ def parse_comma_separated(ctx, param, value):
 @click.option('--nit_m', default=1, type=int, help='Maximum number of minimisation iterations per global iteration. Defaults to 200.')
 @click.option('--printevery', default=1, type=int, help='Number of global iterations between plotting & printing results. Defaults to 5.')
 @click.option('--cudadevice', default='3', type=str, help='CUDA device to run on. Defaults to "3".')
+@click.option('--n_splits', callback=parse_comma_separated, default=None, help='List of splits to run over. Defaults to None, resulting in [0, 1, 2, 3, 4, 5, 6, 7, -1] for mustang.')
 def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery, cudadevice):
     if config not in ['mustang', 'atlast', 'test']: raise ValueError("Unsupported config provided! Please choose between mustang/atlast.")
 
@@ -46,7 +47,16 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
     # Run Jax sampling & configure inputs for GP
     fit.sample_jax_tods(use_truth_slope=False)
 
-    n_splits = [0]
+    if n_splits == []:
+        if fit_atmos and fit_map:
+            if config == 'mustang': n_splits = list(range(8)) + [-1]
+            elif config == 'atlast': n_splits = list(range(7))
+            elif config == 'test': n_split = list(range(0))
+            else: raise ValueError("Don't have n_splits for custom config yet!")
+        elif fit_atmos and not fit_map: n_splits = [0]
+        else: n_splits = [-1]
+    else: n_splits = [int(n_split) for n_split in n_splits]
+    print(f"Will run with n_splits: {n_splits}")
 
     fit.init_gps(n_split=n_splits[0])
     firstiter = True
