@@ -27,3 +27,6 @@ scikit-image = ">=0.25.2,<0.26"
 [environments]
 cpu = { features = ["cpu"] }
 gpu = { features = ["gpu"], no-default-feature = true }
+
+[pypi-dependencies]
+nifty8 = ">=8.5.7, <9"
