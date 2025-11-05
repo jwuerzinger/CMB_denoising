@@ -51,7 +51,7 @@ def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery
         if fit_atmos and fit_map:
             if config == 'mustang': n_splits = list(range(8)) + [-1]
             elif config == 'atlast': n_splits = list(range(7))
-            elif config == 'test': n_split = list(range(0))
+            elif config == 'test': n_splits = list(range(0))
             else: raise ValueError("Don't have n_splits for custom config yet!")
         elif fit_atmos and not fit_map: n_splits = [0]
         else: n_splits = [-1]
