@@ -22,7 +22,6 @@ def parse_comma_separated(ctx, param, value):
 @click.option('--nit_m', default=1, type=int, help='Maximum number of minimisation iterations per global iteration. Defaults to 200.')
 @click.option('--printevery', default=1, type=int, help='Number of global iterations between plotting & printing results. Defaults to 5.')
 @click.option('--cudadevice', default='3', type=str, help='CUDA device to run on. Defaults to "3".')
-@click.option('--n_splits', callback=parse_comma_separated, default=None, help='List of splits to run over. Defaults to None, resulting in [0, 1, 2, 3, 4, 5, 6, 7, -1] for mustang.')
 def main(config, fit_atmos, fit_map, nit_glob, nit_sl, nit_sn, nit_m, printevery, cudadevice):
     if config not in ['mustang', 'atlast', 'test']: raise ValueError("Unsupported config provided! Please choose between mustang/atlast.")
 
