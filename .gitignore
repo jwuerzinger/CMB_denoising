@@ -6,4 +6,4 @@ nifty_maria/*.npy
 nifty_maria/nifty_maria/__pycache__/
 nifty_maria/nifty_maria.egg-info/
 .pixi/*
-!.pixi/config.toml
+pixi.lock
