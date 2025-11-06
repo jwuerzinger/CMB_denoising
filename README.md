@@ -8,10 +8,8 @@ Don't hesitate to reach out to me directly or open an issue in case you spot any
 
 ## Installation
 
-I will conserve my conda environment and supply automated installation instructions here, once the server lets me..
-Until then, please follow these manual instructions:
-
-The `maria` and `NIFTy` repos are both added as submodules to this repo. After cloning this repo with submodules with
+There are two different ways for the installation.
+Please clone this repo with submodules with
 ```bash
 git clone --recurse-submodules git@github.com:jwuerzinger/CMB_denoising.git
 ```
@@ -21,6 +19,12 @@ git clone --recurse-submodules https://github.com/jwuerzinger/CMB_denoising.git
 ```
 if you want to authenticate with https.
 
+### Using Pip Install
+
+I will conserve my conda environment and supply automated installation instructions here, once the server lets me..
+Until then, please follow these manual instructions:
+
+The `maria` and `NIFTy` repos are both added as submodules to this repo. 
 Install both submodules with
 ```bash
 pip install -e maria/
@@ -35,7 +39,44 @@ Next, install this package with:
 pip install -e nifty_maria/
 ```
 
+### Using Pixi Install
+First, install pixi using
+```bash
+curl -fsSL https://pixi.sh/install.sh | sh
+```
+if on Linux.
+For Windows, please have a look at [here](https://pixi.sh/latest/installation/).
+
+Next, run 
+```bash
+pixi install
+```
+for it to automatically install all the dependencies it needs.
+
+Only `maria` repo needs to be added as submodules to this repo. 
+Install the submodule with
+```bash
+pixi run pip install -e maria/
+```
+If necessary, there are dedicated installation instructions for `maria` [here](https://thomaswmorris.com/maria/installation.html).
+
+Only if want to run it in the cpu environment:
+```bash
+pixi install -e cpu
+```
+
+If you want to set cpu environment as default:
+```bash
+export PIXI_ENV=cpu
+```
+Otherwise: 
+```bash
+export PIXI_ENV=gpu
+```
+
 ## Running
+
+### For Pip
 
 After installing, you can use the steering script in [nifty_maria/steering/steering_full.py](nifty_maria/steering/steering_full.py).
 To do this, simply call:
@@ -48,6 +89,22 @@ Where `CONFIG` should be either `mustang`, `atlast` or the path to a custom stee
 The value for `BOOL` is either `True` or `False`, depending on whether you want to fit the atmosphere/map. By default, a fit to simulated `mustang` data for both the map and atmosphere is performed.
 
 This script starts with a reconstruction of two gaussian process-based correlated field models: One two-dimensional model for the map and one one-dimensional model for the atmosphere TOD directly. The array is then automatically split horizontally/vertically, thus doubling the numbers of modelled atmosphere TODs `n_sub` with every iterations, until `n_sub=64` for AtLAST and `n_sub=128` for MUSTANG-2. In the case of MUSTANG-2, a final step in the fit is performed where every detector's atmosphere TOD response is modelled individually.
+
+### For Pixi
+Whenever running a script, the pixi shell needs to be activated:
+```bash
+pixi shell
+```
+Instructions for the steering script are the same as for pip:
+```bash
+cd nifty_maria/steering
+pixi run python steering_full.py --config CONFIG --fit_atmos BOOL --fit_map BOOL
+```
+
+Deactivation of the pixi shell is just:
+```bash
+exit
+```
 
 ## Structure
 

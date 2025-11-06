@@ -1,0 +1,32 @@
+[workspace]
+channels = ["conda-forge"]
+name = "CMB-denoising"
+platforms = ["linux-64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+pytest = ">=8.4.2,<9"
+pip = ">=25.2,<26"
+
+[feature.cpu.dependencies]
+numpy = ">=2.3.2,<3"
+scikit-image = ">=0.25.2,<0.26"
+jax = "==0.6.0"
+
+[feature.gpu.system-requirements]
+cuda = "12.9"
+
+[feature.gpu.dependencies]
+jax = "==0.6.0"
+cuda-version = "12.6.*"
+numpy = ">=2.3.2,<3"
+scikit-image = ">=0.25.2,<0.26"
+
+[environments]
+cpu = { features = ["cpu"] }
+gpu = { features = ["gpu"], no-default-feature = true }
+
+[pypi-dependencies]
+nifty8 = ">=8.5.7, <9"

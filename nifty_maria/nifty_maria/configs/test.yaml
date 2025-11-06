@@ -1,0 +1,28 @@
+name: mustang
+maria_params:
+  scan_center: [144, 12]
+  map_filename: "maps/cluster2.fits"
+  site: 'green_bank'
+  resolution: 8.714e-05
+  nu: 93.0e+9
+  width: 0.08714
+  scan_options:
+    radius: 0.0333
+    speed: 0.008333
+  duration: 180
+  sample_rate: 25
+  start_time: '2024-02-10T06:00:00.000'
+  # units: mJy/pixel
+  units: Jy/pixel
+nifty_params:
+  # noiseval: 1.6e-4
+  noiseval: 0.0062
+  tod_loglog : [-2.45, 0.1]
+  # tod_offset : [2.4e-4, 2.3e-4]
+  # tod_fluct : [0.006, 0.001]
+  tod_offset : [1.0, 0.2]
+  tod_fluct : [0.25, 0.05]
+  map_offset : [1.0e-8, 1.0e-7]
+  map_fluct : [5.6e-5, 1.0e-6]
+  map_loglog : [-2.3, 0.1]
+  downsampling_factor: 3

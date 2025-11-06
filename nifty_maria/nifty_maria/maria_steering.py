@@ -18,7 +18,7 @@ class MariaSteering:
         maria_params = self.confdict['maria_params']
         self.maria_params = maria_params
         self.scan_center = tuple(maria_params['scan_center'])
-        if self.config == 'mustang':
+        if self.config == 'mustang' or self.config == 'test':
             map_filename = maria.io.fetch(maria_params['map_filename'])
         else:
             map_filename = maria_params['map_filename']
@@ -33,7 +33,7 @@ class MariaSteering:
                                         units=maria_params['units'] # Units of the input map 
                                     )
 
-        if self.config == 'mustang':
+        if self.config == 'mustang' or self.config == 'test':
             self.input_map.data = self.input_map.data/8.
 
         if self.config == 'atlast':
@@ -65,6 +65,7 @@ class MariaSteering:
         """
         
         if self.config == 'mustang': return maria.get_instrument('MUSTANG-2')
+        elif self.config == 'test': return maria.get_instrument('MUSTANG-2')
         elif self.config == 'atlast': return self.get_atlast()
     
     def get_atlast(self):
@@ -123,8 +124,8 @@ class MariaSteering:
         }
         
         band = self.instrument.bands[0] # TODO: should actually vmap over bands!
-        
-        self.pW_per_K_RJ = 1e12 * k_B * band.compute_nu_integral(**spectrum_kwargs)
+
+        self.pW_per_K_RJ = 1e12 * k_B * band.compute_transmission_integral(**spectrum_kwargs)
 
         # Ad hoc fix for atmosphere & noise units:
         # self.tod_truthmap.data['atmosphere'] *= self.pW_per_K_RJ
@@ -182,7 +183,7 @@ class MariaSteering:
         #     plt.close()
         
         # Run proper mapmaker TODO: customize per fit
-        if self.config == 'mustang':
+        if self.config == 'mustang' or self.config == 'test':
             mapper = BinMapper(self.scan_center,
                     frame="ra_dec",
                     width = self.maria_params['width'],
