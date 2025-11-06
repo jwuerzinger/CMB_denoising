@@ -1,4 +1,0 @@
-numpy
-jax[cuda12]
-scikit-image
-importlib-metadata
