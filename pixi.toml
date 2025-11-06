@@ -9,24 +9,30 @@ version = "0.1.0"
 [dependencies]
 pytest = ">=8.4.2,<9"
 pip = ">=25.2,<26"
-
-[feature.cpu.dependencies]
-numpy = ">=2.3.2,<3"
-scikit-image = ">=0.25.2,<0.26"
-jax = "==0.6.0"
-
-[feature.gpu.system-requirements]
-cuda = "12.9"
-
-[feature.gpu.dependencies]
 jax = "==0.6.0"
 cuda-version = "12.6.*"
 numpy = ">=2.3.2,<3"
 scikit-image = ">=0.25.2,<0.26"
 
-[environments]
-cpu = { features = ["cpu"] }
-gpu = { features = ["gpu"], no-default-feature = true }
-
 [pypi-dependencies]
 nifty8 = ">=8.5.7, <9"
+maria = { git = "https://github.com/thomaswmorris/maria.git", rev = "5b5a7bfee28edc7da47300e87ed1b32acba6c5f0" }
+nifty_maria = { path = "./nifty_maria" }
+
+[feature.cpu.dependencies]
+pytest = ">=8.4.2,<9"
+pip = ">=25.2,<26"
+numpy = ">=2.3.2,<3"
+scikit-image = ">=0.25.2,<0.26"
+jax = "==0.6.0"
+
+[feature.cpu.pypi-dependencies]
+nifty8 = ">=8.5.7, <9"
+maria = { git = "https://github.com/thomaswmorris/maria.git", rev = "5b5a7bfee28edc7da47300e87ed1b32acba6c5f0" }
+nifty_maria = { path = "./nifty_maria" }
+
+[system-requirements]
+cuda = "12.9"
+
+[environments]
+cpu = { features = ["cpu"], no-default-feature = true }

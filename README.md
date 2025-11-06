@@ -19,7 +19,29 @@ git clone --recurse-submodules https://github.com/jwuerzinger/CMB_denoising.git
 ```
 if you want to authenticate with https.
 
-### Using Pip Install
+Install pixi using:
+```bash
+curl -fsSL https://pixi.sh/install.sh | sh
+```
+if on Linux.
+For Windows, please have a look at [here](https://pixi.sh/latest/installation/).
+
+The pixi configuration found in the [pixi.toml](pixi.toml) has support for two environments. The default environment is GPU-based, while the option to run with CPU-only exists.
+
+Open a pixi shell with the GPU environment with:
+```bash
+pixi shell
+```
+This automatically installs every dependency for the project (including CUDA).
+
+Should you only have access to a CPU, open the shell with:
+```bash
+pixi shell -e cpu
+```
+
+**NOTE**: The local versions of submodules for `nifty` and `maria` are no longer used in this setup and will be removed in the future!
+
+### Using Pip Install (depreceated!)
 
 I will conserve my conda environment and supply automated installation instructions here, once the server lets me..
 Until then, please follow these manual instructions:
@@ -39,44 +61,12 @@ Next, install this package with:
 pip install -e nifty_maria/
 ```
 
-### Using Pixi Install
-First, install pixi using
-```bash
-curl -fsSL https://pixi.sh/install.sh | sh
-```
-if on Linux.
-For Windows, please have a look at [here](https://pixi.sh/latest/installation/).
-
-Next, run 
-```bash
-pixi install
-```
-for it to automatically install all the dependencies it needs.
-
-Only `maria` repo needs to be added as submodules to this repo. 
-Install the submodule with
-```bash
-pixi run pip install -e maria/
-```
-If necessary, there are dedicated installation instructions for `maria` [here](https://thomaswmorris.com/maria/installation.html).
-
-Only if want to run it in the cpu environment:
-```bash
-pixi install -e cpu
-```
-
-If you want to set cpu environment as default:
-```bash
-export PIXI_ENV=cpu
-```
-Otherwise: 
-```bash
-export PIXI_ENV=gpu
-```
-
 ## Running
 
-### For Pip
+Whenever running a script, the pixi shell needs to be activated:
+```bash
+pixi shell
+```
 
 After installing, you can use the steering script in [nifty_maria/steering/steering_full.py](nifty_maria/steering/steering_full.py).
 To do this, simply call:
@@ -90,17 +80,6 @@ The value for `BOOL` is either `True` or `False`, depending on whether you want 
 
 This script starts with a reconstruction of two gaussian process-based correlated field models: One two-dimensional model for the map and one one-dimensional model for the atmosphere TOD directly. The array is then automatically split horizontally/vertically, thus doubling the numbers of modelled atmosphere TODs `n_sub` with every iterations, until `n_sub=64` for AtLAST and `n_sub=128` for MUSTANG-2. In the case of MUSTANG-2, a final step in the fit is performed where every detector's atmosphere TOD response is modelled individually.
 
-### For Pixi
-Whenever running a script, the pixi shell needs to be activated:
-```bash
-pixi shell
-```
-Instructions for the steering script are the same as for pip:
-```bash
-cd nifty_maria/steering
-pixi run python steering_full.py --config CONFIG --fit_atmos BOOL --fit_map BOOL
-```
-
 Deactivation of the pixi shell is just:
 ```bash
 exit
@@ -108,7 +87,7 @@ exit
 
 ## Structure
 
-The [maria](maria/) and [nifty](nifty/) python packages are added as submodules.
+The [maria](maria/) and [nifty](nifty/) python packages are added as submodules. (**NO LONGER USED IN PIXI SETUP!!**)
 
 The [tutorials](tutorials/) folder contains some simple tutorial notebooks for using maria.
 They may be outdated. Also check: maria/docs/source/tutorials for up-to-date tutorials specific to `maria`. 

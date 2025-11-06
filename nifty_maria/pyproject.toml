@@ -14,9 +14,9 @@ authors = [
 ]
 dependencies = [
     "numpy",
-    "jax[cuda12]",
     "scikit-image",
-    "importlib-metadata"
+    "importlib-metadata",
+    "nifty8>=8.5.7, <9"
 ]
 classifiers = [
 "Development Status :: 3 - Alpha",
@@ -34,8 +34,8 @@ Homepage = "https://github.com/jwuerzinger/CMB_denoising"
 packages = ["nifty_maria"]
 
 # Uncomment if you want to include package data (e.g., CSV files)
-# [tool.setuptools.package-data]
-# "" = ["data/*.csv"]
+[tool.setuptools.package-data]
+nifty_maria = ["configs/*.yaml"]
 
 # Uncomment if you have console scripts
 # [project.scripts]
