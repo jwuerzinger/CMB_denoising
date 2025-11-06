@@ -5,5 +5,6 @@ nifty_maria/steering/runs
 nifty_maria/*.npy
 nifty_maria/nifty_maria/__pycache__/
 nifty_maria/nifty_maria.egg-info/
+nifty_maria/tests/__pycache__/
 .pixi/*
 pixi.lock
