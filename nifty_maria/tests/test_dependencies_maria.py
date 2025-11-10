@@ -4,6 +4,8 @@ import importlib
 import tomllib
 import re
 import pathlib
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 base_dir = pathlib.Path(__file__).resolve().parents[2]
 
@@ -26,8 +28,8 @@ with pixi_file.open("rb") as f:
 
 cmb_deps = pixi_config.get("dependencies", {}).copy()
 cmb_deps.update(pixi_config.get("feature.cpu.dependencies", {}))
-cmb_deps.update(pixi_config.get("feature.gpu.dependencies", {}))
-cmb_deps.update(pixi_config.get("feature.gpu.system-requirements", {}))
+cmb_deps.update(pixi_config.get("feature.cpu.pypi-dependencies", {}))
+cmb_deps.update(pixi_config.get("pypi-dependencies", {}))
 
 import_name_map = {
     "scikit-image": "skimage"
@@ -62,12 +64,28 @@ def satisfies(version, spec):
 
 all_deps = {**cmb_deps, **maria_deps}
 
+def spec_subset(cmb_spec: str, maria_spec: str) -> bool:
+    """Return True if cmb version spec is a subset of maria version spec (every bound in cmb_spec satisfies maria_spec)."""
+    # Split multiple bounds like ">=2.3.2,<3"
+    parts = [s.strip() for s in spec1.split(",") if s.strip()]
+
+    for part in parts:
+        match = re.match(r"(>=|<=|==|>|<)\s*(.+)", part)
+        if not match:
+            continue
+        _, version_str = match.groups()
+        if not satisfies(version_str, spec2):
+            return False
+
+    return True
+
+
 def test_version_specs_consistent():
     """Fail if maria and CMB_denoising disagree on version specs."""
     common = set(cmb_deps.keys()) & set(maria_deps.keys())
     for pkg in sorted(common):
         spec1, spec2 = cmb_deps[pkg], maria_deps[pkg]
-        if spec1 and spec2 and spec1 != spec2:
+        if not (spec_subset(spec1_str, spec2_str)):
             pytest.fail(
                 f"Version mismatch for {pkg}: "
                 f"CMB_denoising requires '{spec1}', "

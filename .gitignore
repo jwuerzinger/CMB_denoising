@@ -1,6 +1,7 @@
 .vscode
 sim.fits
 gifs/*.gif
+nifty_maria/build
 nifty_maria/steering/runs
 nifty_maria/*.npy
 nifty_maria/nifty_maria/__pycache__/
