@@ -81,14 +81,14 @@ def spec_subset(cmb_spec: str, maria_spec: str) -> bool:
 def spec_subset(cmb_spec: str, maria_spec: str) -> bool:
     """Return True if cmb version spec is a subset of maria version spec (every bound in cmb_spec satisfies maria_spec)."""
     # Split multiple bounds like ">=2.3.2,<3"
-    parts = [s.strip() for s in spec1.split(",") if s.strip()]
+    parts = [s.strip() for s in cmb_spec.split(",") if s.strip()]
 
     for part in parts:
         match = re.match(r"(>=|<=|==|>|<)\s*(.+)", part)
         if not match:
             continue
         _, version_str = match.groups()
-        if not satisfies(version_str, spec2):
+        if not satisfies(version_str, maria_spec):
             return False
 
     return True
