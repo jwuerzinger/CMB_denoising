@@ -5,8 +5,6 @@ import importlib.util
 import tomllib
 import re
 import pathlib
-from packaging.specifiers import SpecifierSet
-from packaging.version import Version
 
 base_dir = pathlib.Path(__file__).resolve().parents[2]
 
@@ -90,8 +88,6 @@ def test_version_specs_consistent():
                     f"CMB_denoising requires '{spec1}', "
                     f"but maria requires '{spec2}'"
                 )
-
-all_deps = {**cmb_deps, **maria_deps}
 
 all_deps = {**cmb_deps, **maria_deps}
 
