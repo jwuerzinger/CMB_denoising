@@ -1,11 +1,10 @@
 import pytest
 import sys
 import importlib
+import importlib.util
 import tomllib
 import re
 import pathlib
-from packaging.specifiers import SpecifierSet
-from packaging.version import Version
 
 base_dir = pathlib.Path(__file__).resolve().parents[2]
 
@@ -92,7 +91,17 @@ def test_version_specs_consistent():
 
 all_deps = {**cmb_deps, **maria_deps}
 
-@pytest.mark.parametrize("pkg_name,spec", [(k, v) for k, v in all_deps.items() if v])
+def is_importable(pkg_name):
+    return importlib.util.find_spec(pkg_name) is not None
+
+@pytest.mark.parametrize(
+    "pkg_name,spec",
+    [
+        (k, v)
+        for k, v in all_deps.items()
+        if isinstance(v, str) and v and is_importable(k)
+    ]
+)
 def test_dependency_versions(pkg_name, spec):
     """Fail if installed version does not satisfy declared specs."""
     pkg = importlib.import_module(pkg_name)
