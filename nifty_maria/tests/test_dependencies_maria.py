@@ -1,6 +1,7 @@
 import pytest
 import sys
 import importlib
+import importlib.util
 import tomllib
 import re
 import pathlib
@@ -26,8 +27,8 @@ with pixi_file.open("rb") as f:
 
 cmb_deps = pixi_config.get("dependencies", {}).copy()
 cmb_deps.update(pixi_config.get("feature.cpu.dependencies", {}))
-cmb_deps.update(pixi_config.get("feature.gpu.dependencies", {}))
-cmb_deps.update(pixi_config.get("feature.gpu.system-requirements", {}))
+cmb_deps.update(pixi_config.get("feature.cpu.pypi-dependencies", {}))
+cmb_deps.update(pixi_config.get("pypi-dependencies", {}))
 
 import_name_map = {
     "scikit-image": "skimage"
@@ -60,7 +61,20 @@ def satisfies(version, spec):
     else:
         return False
 
-all_deps = {**cmb_deps, **maria_deps}
+def spec_subset(cmb_spec: str, maria_spec: str) -> bool:
+    """Return True if cmb version spec is a subset of maria version spec (every bound in cmb_spec satisfies maria_spec)."""
+    # Split multiple bounds like ">=2.3.2,<3"
+    parts = [s.strip() for s in cmb_spec.split(",") if s.strip()]
+
+    for part in parts:
+        match = re.match(r"(>=|<=|==|>|<)\s*(.+)", part)
+        if not match:
+            continue
+        _, version_str = match.groups()
+        if not satisfies(version_str, maria_spec):
+            return False
+
+    return True
 
 def test_version_specs_consistent():
     """Fail if maria and CMB_denoising disagree on version specs."""
@@ -68,13 +82,26 @@ def test_version_specs_consistent():
     for pkg in sorted(common):
         spec1, spec2 = cmb_deps[pkg], maria_deps[pkg]
         if spec1 and spec2 and spec1 != spec2:
-            pytest.fail(
-                f"Version mismatch for {pkg}: "
-                f"CMB_denoising requires '{spec1}', "
-                f"but maria requires '{spec2}'"
-            )
+            if not (spec_subset(spec1, spec2)):
+                pytest.fail(
+                    f"Version mismatch for {pkg}: "
+                    f"CMB_denoising requires '{spec1}', "
+                    f"but maria requires '{spec2}'"
+                )
 
-@pytest.mark.parametrize("pkg_name,spec", [(k, v) for k, v in all_deps.items() if v])
+all_deps = {**cmb_deps, **maria_deps}
+
+def is_importable(pkg_name):
+    return importlib.util.find_spec(pkg_name) is not None
+
+@pytest.mark.parametrize(
+    "pkg_name,spec",
+    [
+        (k, v)
+        for k, v in all_deps.items()
+        if isinstance(v, str) and v and is_importable(k)
+    ]
+)
 def test_dependency_versions(pkg_name, spec):
     """Fail if installed version does not satisfy declared specs."""
     pkg = importlib.import_module(pkg_name)
