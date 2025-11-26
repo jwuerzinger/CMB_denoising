@@ -42,6 +42,12 @@ jax = "==0.6.0"
 nifty8 = ">=8.5.7, <9"
 nifty_maria = { path = "./nifty_maria" }
 
+[feature.test-no-maria.dependencies]
+
+[feature.test-no-maria.pypi-dependencies]
+nifty8 = ">=8.5.7, <9"
+nifty_maria = { path = "./nifty_maria" }
+
 [system-requirements]
 cuda = "12.9"
 
