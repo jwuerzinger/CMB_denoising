@@ -29,7 +29,7 @@ jax = "==0.6.0"
 [feature.cpu.pypi-dependencies]
 nifty8 = ">=8.5.7, <9"
 maria = { git = "https://github.com/thomaswmorris/maria.git", rev = "5b5a7bfee28edc7da47300e87ed1b32acba6c5f0" }
-nifty_maria = { path = "./nifty_maria" }
+nifty_maria = { path = "./nifty_maria", editable = true }
 
 [feature.test-no-maria.dependencies]
 pytest = ">=8.4.2,<9"
