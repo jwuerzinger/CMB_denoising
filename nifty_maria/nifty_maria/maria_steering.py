@@ -59,7 +59,7 @@ class MariaSteering:
         self.instrument.plot()    
         return
     
-    def get_instrument(self) -> maria.Instrument:https://github.com/aileench3n/maria/actions/runs/20426691953/job/58711355233
+    def get_instrument(self) -> maria.Instrument:
         """
         Retrieves instrument object. Either AtLAST or MUSTANG-2 for now. Custom objects to be added later.
         """
