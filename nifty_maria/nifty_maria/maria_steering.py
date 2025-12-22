@@ -109,10 +109,10 @@ class MariaSteering:
             atmosphere="2d",
         )
 
-        self.tod_truthmap = self.sim_truthmap.run()
+        self.tod_truthmap = self.sim_truthmap.run()[0]
         
         # Plot TODs:
-        self.tod_truthmap[0].plot()
+        self.tod_truthmap.plot()
         self.offsets = self.sim_truthmap.obs_list[0].coords.offsets(frame=self.sim_truthmap.map.frame,
                                                                     center=(self.sim_truthmap.map.center[0].rad, self.sim_truthmap.map.center[1].rad))
         
