@@ -59,7 +59,7 @@ class MariaSteering:
         self.instrument.plot()    
         return
     
-    def get_instrument(self) -> maria.Instrument:
+    def get_instrument(self) -> maria.Instrument:https://github.com/aileench3n/maria/actions/runs/20426691953/job/58711355233
         """
         Retrieves instrument object. Either AtLAST or MUSTANG-2 for now. Custom objects to be added later.
         """
@@ -112,7 +112,7 @@ class MariaSteering:
         self.tod_truthmap = self.sim_truthmap.run()
         
         # Plot TODs:
-        self.tod_truthmap.plot()
+        self.tod_truthmap[0].plot()
         self.offsets = self.sim_truthmap.obs_list[0].coords.offsets(frame=self.sim_truthmap.map.frame,
                                                                     center=(self.sim_truthmap.map.center[0].rad, self.sim_truthmap.map.center[1].rad))
         
