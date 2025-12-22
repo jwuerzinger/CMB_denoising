@@ -184,7 +184,7 @@ class MariaSteering:
         
         # Run proper mapmaker TODO: customize per fit
         if self.config == 'mustang' or self.config == 'test':
-            mapper = BinMapper(self.scan_center,
+            mapper = BinMapper(center=self.scan_center,
                     frame="ra_dec",
                     width = self.maria_params['width'],
                     # width= 0.1 if self.config == 'mustang' else 1.,
@@ -204,7 +204,7 @@ class MariaSteering:
                     tods = self.tod_truthmap
                     )
         elif self.config == 'atlast': # TODO: optimise!
-            mapper = BinMapper(self.scan_center,
+            mapper = BinMapper(center=self.scan_center,
                     frame="ra_dec",
                     width=self.maria_params['width'],
                     height=self.maria_params['width'],
