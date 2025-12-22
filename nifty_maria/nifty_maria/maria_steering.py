@@ -201,6 +201,7 @@ class MariaSteering:
                             "median_filter": {"size": 1},
                         },
                     units = "uK_RJ",
+                    tods = self.tod_truthmap
                     )
         elif self.config == 'atlast': # TODO: optimise!
             mapper = BinMapper(self.scan_center,
@@ -219,9 +220,10 @@ class MariaSteering:
                             "median_filter": {"size": 1},
                         },
                         units = "uK_RJ",
+                        tods = self.tod_truthmap
                     )
         
-        mapper.add_tods(self.tod_truthmap)
+        # mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
         # self.output_map.plot(filename=f"{self.plotsdir}/reco_maria.png")
