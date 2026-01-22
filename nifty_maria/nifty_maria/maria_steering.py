@@ -201,7 +201,7 @@ class MariaSteering:
                             "median_filter": {"size": 1},
                         },
                     units = "uK_RJ",
-                    tods = self.tod_truthmap
+                    tods = [self.tod_truthmap]
                     )
         elif self.config == 'atlast': # TODO: optimise!
             mapper = BinMapper(center=self.scan_center,
@@ -220,7 +220,7 @@ class MariaSteering:
                             "median_filter": {"size": 1},
                         },
                         units = "uK_RJ",
-                        tods = self.tod_truthmap
+                        tods = [self.tod_truthmap]
                     )
         
         # mapper.add_tods(self.tod_truthmap)
