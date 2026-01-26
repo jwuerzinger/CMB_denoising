@@ -204,7 +204,7 @@ class FitHandler(Plotter, MariaSteering):
             plt.close()
 
         from maria.mappers import BinMapper
-        mapper = BinMapper(self.scan_center,
+        mapper = BinMapper(center=self.scan_center,
                     frame="ra_dec",
                     width = self.maria_params['width'],
                     # width= 0.1 if self.config == 'mustang' else 1.,
@@ -221,6 +221,7 @@ class FitHandler(Plotter, MariaSteering):
                             "median_filter": {"size": 1},
                         },
                     units = "uK_RJ",
+                    tods=[self.tod_truthmap],
                     )
 
         import dask.array as da
