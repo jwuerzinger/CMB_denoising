@@ -189,7 +189,8 @@ class FitHandler(Plotter, MariaSteering):
             tods_map = np.float64(self.tod_truthmap.data['map'].compute())
             im1 = axes[1].plot(tods_map[i], label=i)
 
-            im2 = axes[2].plot(self.jax_tods_map[i]/tods_map[i], label=i)
+            im2 = axes[2].plot(self.jax_tods_map[i]/tods_map[i][:, None], label=i)
+
             
         axes[0].title.set_text(f'JAX map, TOD0-{i}')
         axes[0].legend()
