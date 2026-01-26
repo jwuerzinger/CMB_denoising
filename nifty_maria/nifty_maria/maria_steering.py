@@ -162,7 +162,11 @@ class MariaSteering:
         mapdata_truth = self.input_map.to(units="K_RJ").data.compute()
         self.mapdata_truth = np.nan_to_num(mapdata_truth, nan=np.nanmean(mapdata_truth)) # replace nan value by img mean
         self.mapdata_truth = np.float64(self.mapdata_truth)
-        self.mapdata_truth = self.mapdata_truth.reshape(-1, *self.mapdata_truth.shape[-1:])
+        if self.mapdata_truth.ndim == 2:
+            self.mapdata_truth = self.mapdata_truth[:, None, :]
+        elif self.mapdata_truth.ndim == 1:
+            self.mapdata_truth = self.mapdata_truth[None, None, :]
+        mapdata_truth = self.input_map.to(units="K_RJ").data.compute()
 
         print("mapdata_truth shape:", self.mapdata_truth.shape)
         print("mapdata_truth mean:", self.mapdata_truth.mean())
