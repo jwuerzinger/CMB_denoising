@@ -193,7 +193,7 @@ class MariaSteering:
                     resolution=self.instrument.dets.fwhm.deg[0]/4.,
                     tod_preprocessing={
                             "window": {"name": "hamming"},
-                            "remove_modes": {"modes_to_remove": [0]},
+                            "remove_modes": {"modes_to_remove": 0},
                             "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
                         },
                     map_postprocessing={
@@ -213,7 +213,7 @@ class MariaSteering:
                             # "window": {"name": "hamming"},
                             "window": {"name": "tukey", "kwargs": {"alpha": 0.1}},
                             "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
-                            "remove_modes": {"modes_to_remove": [0]},
+                            "remove_modes": {"modes_to_remove": 0},
                         },
                         map_postprocessing={
                             "gaussian_filter": {"sigma": 1},
