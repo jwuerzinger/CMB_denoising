@@ -228,7 +228,7 @@ class FitHandler(Plotter, MariaSteering):
         import dask.array as da
         # self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
         self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
-        self.tod_truthmap.data['map'] = da.from_array(self.tod_truthmap.data['map'], chunks=(500, 500))
+        self.tod_truthmap.data['map'] = da.from_array(self.tod_truthmap.data['map'], chunks=(500, 500, None))
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
