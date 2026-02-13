@@ -189,7 +189,7 @@ class FitHandler(Plotter, MariaSteering):
             tods_map = np.float64(self.tod_truthmap.data['map'].compute())
             im1 = axes[1].plot(tods_map[i], label=i)
 
-            im2 = axes[2].plot(self.jax_tods_map[i]/tods_map[i][:, None], label=i)
+            im2 = axes[2].plot(self.jax_tods_map[i]/tods_map[i], label=i)
 
             
         axes[0].title.set_text(f'JAX map, TOD0-{i}')
@@ -228,7 +228,7 @@ class FitHandler(Plotter, MariaSteering):
         import dask.array as da
         # self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
         self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
-        self.tod_truthmap.data['map'] = da.from_array(self.tod_truthmap.data['map'], chunks=(500, 500, 500))
+        self.tod_truthmap.data['map'] = da.from_array(self.tod_truthmap.data['map'], chunks=(500, 500))
         mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
@@ -254,8 +254,7 @@ class FitHandler(Plotter, MariaSteering):
             self.noised_jax_tod = np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0] + np.float64(self.jax_tods_atmos)[0]
             self.noised_jax_tod = self.noised_jax_tod[None, :]
         
-            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0]
-        
+            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0]        
         else:
             self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)
 
