@@ -9,7 +9,7 @@ maria_params:
   scan_options:
     radius: 0.0333
     speed: 0.008333
-  duration: 10
+  duration: 180
   sample_rate: 25
   start_time: '2024-02-10T06:00:00.000'
   # units: mJy/pixel
