@@ -178,7 +178,6 @@ class FitHandler(Plotter, MariaSteering):
         sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
 
         self.jax_tods_map = sample_maps(self.mapdata_truth, self.instrument, self.offsets, float(sigma_pixels), jnp.array(self.sim_truthmap.map.x_side), jnp.array(self.sim_truthmap.map.y_side), jnp.array(self.pW_per_K_RJ))
-
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
         n = self.instrument.n
@@ -226,7 +225,6 @@ class FitHandler(Plotter, MariaSteering):
                     )
 
         import dask.array as da
-        # self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
         self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
         self.tod_truthmap.data['map'] = da.from_array(self.tod_truthmap.data['map'], chunks=(500, 500))
         mapper.add_tods(self.tod_truthmap)
@@ -253,7 +251,7 @@ class FitHandler(Plotter, MariaSteering):
             print("Only considering 0th TOD!")
             self.noised_jax_tod = np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0] + np.float64(self.jax_tods_atmos)[0]
             self.noised_jax_tod = self.noised_jax_tod[None, :]
-        
+
             self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0]        
         else:
             self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)
