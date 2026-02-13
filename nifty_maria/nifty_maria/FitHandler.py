@@ -178,7 +178,6 @@ class FitHandler(Plotter, MariaSteering):
         sigma_pixels = sigma_rad/self.sim_truthmap.map.resolution
 
         self.jax_tods_map = sample_maps(self.mapdata_truth, self.instrument, self.offsets, float(sigma_pixels), jnp.array(self.sim_truthmap.map.x_side), jnp.array(self.sim_truthmap.map.y_side), jnp.array(self.pW_per_K_RJ))
-
         fig, axes = plt.subplots(3, 1, figsize=(16, 8))
 
         n = self.instrument.n
@@ -190,6 +189,7 @@ class FitHandler(Plotter, MariaSteering):
             im1 = axes[1].plot(tods_map[i], label=i)
 
             im2 = axes[2].plot(self.jax_tods_map[i]/tods_map[i], label=i)
+
             
         axes[0].title.set_text(f'JAX map, TOD0-{i}')
         axes[0].legend()
@@ -204,7 +204,7 @@ class FitHandler(Plotter, MariaSteering):
             plt.close()
 
         from maria.mappers import BinMapper
-        mapper = BinMapper(self.scan_center,
+        mapper = BinMapper(center=self.scan_center,
                     frame="ra_dec",
                     width = self.maria_params['width'],
                     # width= 0.1 if self.config == 'mustang' else 1.,
@@ -213,7 +213,7 @@ class FitHandler(Plotter, MariaSteering):
                     resolution=self.instrument.dets.fwhm.deg[0]/4.,
                     tod_preprocessing={
                             "window": {"name": "hamming"},
-                            "remove_modes": {"modes_to_remove": [0]},
+                            "remove_modes": {"modes_to_remove": 0},
                             "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
                         },
                     map_postprocessing={
@@ -221,10 +221,10 @@ class FitHandler(Plotter, MariaSteering):
                             "median_filter": {"size": 1},
                         },
                     units = "uK_RJ",
+                    tods=[self.tod_truthmap],
                     )
 
         import dask.array as da
-        # self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
         self.tod_truthmap.data['map'] = np.array(self.jax_tods_map)
         self.tod_truthmap.data['map'] = da.from_array(self.tod_truthmap.data['map'], chunks=(500, 500))
         mapper.add_tods(self.tod_truthmap)
@@ -251,9 +251,8 @@ class FitHandler(Plotter, MariaSteering):
             print("Only considering 0th TOD!")
             self.noised_jax_tod = np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0] + np.float64(self.jax_tods_atmos)[0]
             self.noised_jax_tod = self.noised_jax_tod[None, :]
-        
-            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0]
-        
+
+            self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)[0]        
         else:
             self.denoised_jax_tod = self.noised_jax_tod - np.float64(self.tod_truthmap.data['noise']*self.noiselevel)
 

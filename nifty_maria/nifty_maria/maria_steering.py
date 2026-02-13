@@ -163,6 +163,7 @@ class MariaSteering:
         self.mapdata_truth = np.nan_to_num(mapdata_truth, nan=np.nanmean(mapdata_truth)) # replace nan value by img mean
         self.mapdata_truth = np.float64(self.mapdata_truth)
         self.mapdata_truth = self.mapdata_truth.reshape(-1, *self.mapdata_truth.shape[-1:])
+        # self.mapdata_truth = self.mapdata_truth[0]
 
         print("mapdata_truth shape:", self.mapdata_truth.shape)
         print("mapdata_truth mean:", self.mapdata_truth.mean())
@@ -184,7 +185,7 @@ class MariaSteering:
         
         # Run proper mapmaker TODO: customize per fit
         if self.config == 'mustang' or self.config == 'test':
-            mapper = BinMapper(self.scan_center,
+            mapper = BinMapper(center=self.scan_center,
                     frame="ra_dec",
                     width = self.maria_params['width'],
                     # width= 0.1 if self.config == 'mustang' else 1.,
@@ -193,7 +194,7 @@ class MariaSteering:
                     resolution=self.instrument.dets.fwhm.deg[0]/4.,
                     tod_preprocessing={
                             "window": {"name": "hamming"},
-                            "remove_modes": {"modes_to_remove": [0]},
+                            "remove_modes": {"modes_to_remove": 0},
                             "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
                         },
                     map_postprocessing={
@@ -201,9 +202,10 @@ class MariaSteering:
                             "median_filter": {"size": 1},
                         },
                     units = "uK_RJ",
+                    tods = [self.tod_truthmap]
                     )
         elif self.config == 'atlast': # TODO: optimise!
-            mapper = BinMapper(self.scan_center,
+            mapper = BinMapper(center=self.scan_center,
                     frame="ra_dec",
                     width=self.maria_params['width'],
                     height=self.maria_params['width'],
@@ -212,16 +214,17 @@ class MariaSteering:
                             # "window": {"name": "hamming"},
                             "window": {"name": "tukey", "kwargs": {"alpha": 0.1}},
                             "remove_spline": {"knot_spacing": 30, "remove_el_gradient": True},
-                            "remove_modes": {"modes_to_remove": [0]},
+                            "remove_modes": {"modes_to_remove": 0},
                         },
                         map_postprocessing={
                             "gaussian_filter": {"sigma": 1},
                             "median_filter": {"size": 1},
                         },
                         units = "uK_RJ",
+                        tods = [self.tod_truthmap]
                     )
         
-        mapper.add_tods(self.tod_truthmap)
+        # mapper.add_tods(self.tod_truthmap)
         self.output_map = mapper.run()
         
         # self.output_map.plot(filename=f"{self.plotsdir}/reco_maria.png")
