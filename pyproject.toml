@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maria-nifty"
+dynamic = ["version"]
+description = "Library for nifty fits of maria data."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Jonas Wuerzinger", email = "jonas.wuerzinger@tum.de" },
+    { name = "Richard Fuchs", email = "richard.fuchs@tum.de" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "astropy",
+  "click",
+  "dask",
+  "jax",
+  "matplotlib",
+  "nifty[re]",
+  "numpy",
+  "PyYAML",
+  "scipy",
+  "tqdm",
+]
+
+[tool.setuptools.packages.find]
+include = ["maria_nifty*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "maria_nifty.__version__.__version__"}
+
+[project.urls]
+Homepage = "https://github.com/jwuerzinger/CMB_denoising"
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+filterwarnings = [
+  # Raised by maria itself (maria/map/__init__.py) with newer matplotlib, not by our code.
+  "ignore:The set_bad function will be deprecated:PendingDeprecationWarning",
+]

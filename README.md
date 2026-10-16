@@ -1,103 +1,207 @@
 # CMB_denoising
 
-Repo for reconstruction and denoising of (simulated) (sub-mm) observatios of ground-based single-dish telescopes. This repo uses [maria](https://thomaswmorris.com/maria/index.html) for telescope simulations and the [JAX](https://docs.jax.dev/en/latest/index.html)-based  re-envisioned [NIFTy.re](https://ift.pages.mpcdf.de/nifty/).
+Gaussian process-based imaging of (sub-)millimeter single-dish telescope data combining
+[Maria](https://github.com/thomaswmorris/maria) (telescope simulation and data pipeline),
+[NIFTy.re](https://ift.pages.mpcdf.de/nifty/) (numerical information field theory), and
+[JAX](https://jax.readthedocs.io/) (GPU-accelerated automatic differentiation).
+
+Designed for analyzing time-ordered data (TODs) from (sub-)millimeter single-dish
+telescopes such as MUSTANG-2, enabling joint reconstruction of sky maps and atmospheric
+fluctuations within a principled Bayesian framework.
+
+- [maria_nifty/](maria_nifty/) – the library (models, fitting, plotting)
+- [steering/](steering/) – scripts and YAML configs for simulation, preprocessing, fitting and plotting
+- [tests/](tests/) – unit tests (`pixi run test`)
+- [demo/](demo/) – a small self-contained demo
 
 If you're using this repo for your own research, please cite https://arxiv.org/abs/2509.01600.
+Don't hesitate to reach out directly or open an issue in case you spot any problems!
 
-Don't hesitate to reach out to me directly or open an issue in case you spot any issues!
 
 ## Installation
 
-There are two different ways for the installation.
-Please clone this repo with submodules with
-```bash
-git clone --recurse-submodules git@github.com:jwuerzinger/CMB_denoising.git
-```
-if you're using ssh authentification or 
-```bash
-git clone --recurse-submodules https://github.com/jwuerzinger/CMB_denoising.git
-```
-if you want to authenticate with https.
+Clone the repo:
 
-Install pixi using:
-```bash
-curl -fsSL https://pixi.sh/install.sh | sh
-```
-if on Linux.
-For Windows, please have a look at [here](https://pixi.sh/latest/installation/).
-
-The pixi configuration found in the [pixi.toml](pixi.toml) has support for two environments. The default environment is GPU-based, while the option to run with CPU-only exists.
-
-Open a pixi shell with the GPU environment with:
-```bash
-pixi shell
-```
-This automatically installs every dependency for the project (including CUDA).
-
-Should you only have access to a CPU, open the shell with:
-```bash
-pixi shell -e cpu
+```sh
+git clone https://github.com/jwuerzinger/CMB_denoising.git
+cd CMB_denoising
 ```
 
-**NOTE**: The local versions of submodules for `nifty` and `maria` are no longer used in this setup and will be removed in the future!
+### Recommended: Pixi
 
-### Using Pip Install (depreceated!)
+[Pixi](https://pixi.sh/) manages both conda and PyPI dependencies in a fully reproducible
+environment. Run the commands below from the repo root.
 
-I will conserve my conda environment and supply automated installation instructions here, once the server lets me..
-Until then, please follow these manual instructions:
-
-The `maria` and `NIFTy` repos are both added as submodules to this repo. 
-Install both submodules with
-```bash
-pip install -e maria/
-pip install -e nifty/[re]
+**GPU (CUDA 12.6):**
+```sh
+pixi install
 ```
 
-If necessary, there are dedicated installation instructions for `maria` [here](https://thomaswmorris.com/maria/installation.html).
-
-Next, install this package with:
-
-```bash
-pip install -e nifty_maria/
+**CPU only:**
+```sh
+pixi install -e cpu
 ```
 
-## Running
+### Pip fallback
 
-Whenever running a script, the pixi shell needs to be activated:
-```bash
-pixi shell
+Requires Python ≥ 3.11. Install the package and its core dependencies:
+
+```sh
+pip install .
 ```
 
-After installing, you can use the steering script in [nifty_maria/steering/steering_full.py](nifty_maria/steering/steering_full.py).
-To do this, simply call:
-```bash
-cd nifty_maria/steering
-python steering_full.py --config CONFIG --fit_atmos BOOL --fit_map BOOL
+`maria` and `minkasi` are not on PyPI and must be installed from their Git repositories
+(see `pixi.toml` for the pinned revisions).
+
+
+## Quick start
+
+This example reconstructs the galaxy cluster RX J1347.5-1145 from MUSTANG-2 observations.
+
+### 1. Download the data
+
+The MUSTANG-2 time-ordered data (TODs) for RX J1347 are publicly available from
+[sievers/M2-TODs](https://github.com/sievers/M2-TODs) as compressed FITS files
+(about 525 MB). Download them and unpack them into `steering/data/RXJ1347/`, which is
+where the RX J1347 configs in `steering/config/` look for them. Afterwards,
+delete the `M2-TODs` clone, so that it doesn't end up in the repo by accident:
+
+```sh
+git clone --depth 1 https://github.com/sievers/M2-TODs.git
+mkdir -p steering/data/RXJ1347
+cp M2-TODs/RXJ1347/*.fits.bz2 steering/data/RXJ1347/
+bunzip2 steering/data/RXJ1347/*.fits.bz2
+rm -rf M2-TODs
 ```
 
-Where `CONFIG` should be either `mustang`, `atlast` or the path to a custom steering yaml file. The default yaml files for `mustang` and `atlast` are automatically read and can be found [here](nifty_maria/nifty_maria/configs/).
-The value for `BOOL` is either `True` or `False`, depending on whether you want to fit the atmosphere/map. By default, a fit to simulated `mustang` data for both the map and atmosphere is performed.
+The folder now holds the `Signal_TOD-AGBT*.fits` files, ready to use. Since
+`steering/data/` is git-ignored, the data will never be committed by accident.
 
-This script starts with a reconstruction of two gaussian process-based correlated field models: One two-dimensional model for the map and one one-dimensional model for the atmosphere TOD directly. The array is then automatically split horizontally/vertically, thus doubling the numbers of modelled atmosphere TODs `n_sub` with every iterations, until `n_sub=64` for AtLAST and `n_sub=128` for MUSTANG-2. In the case of MUSTANG-2, a final step in the fit is performed where every detector's atmosphere TOD response is modelled individually.
+### 2. Run the reconstruction
 
-Deactivation of the pixi shell is just:
-```bash
-exit
+`joint_fit.py` reconstructs the sky map and the atmosphere together. The demo config
+`steering/config/demo_2s.yml` uses four of the scans and a short iteration schedule,
+which makes it a good first run; its comments explain every setting. Run it from the
+`steering/` folder, because the paths in the config files are relative to it:
+
+```sh
+cd steering
+pixi run python scripts/joint_fit.py --config config/demo_2s.yml --cuda_device 0
 ```
 
-## Structure
+To run on a CPU instead, use `pixi run -e cpu` and leave out `--cuda_device`.
 
-The [maria](maria/) and [nifty](nifty/) python packages are added as submodules. (**NO LONGER USED IN PIXI SETUP!!**)
+Where the results end up is set by `odir` and `run` in the config:
 
-The [tutorials](tutorials/) folder contains some simple tutorial notebooks for using maria.
-They may be outdated. Also check: maria/docs/source/tutorials for up-to-date tutorials specific to `maria`. 
+- `<odir>/run_<run>/joint_fit/` holds the posterior samples (`last.pkl`), a copy of
+  the config used, and a convergence summary (`minisanity.txt`).
+- `<odir>/plot_<run>/joint_fit/` collects diagnostic plots, refreshed every
+  `plot_every` iterations while the fit runs.
 
-[nifty_maria](nifty_maria/) contains code for reconstructing maria data with the jax implementation of [nifty](nifty/).
-- [nifty_maria/nifty_maria/](nifty_maria/nifty_maria/): jax-based rewrite of maria's map sampling as well as general steering code.
-- [nifty_maria/steering/](nifty_maria/steering/): Test notebooks for testing improved steering notebooks.
+To start a fresh run with the same settings, increase `run:` in the config.
 
-## References:
+
+## Workflow
+
+The scripts below cover the full chain from raw TODs to final figures. They all live in
+`steering/scripts/` and are run from `steering/`. Every script lists its options with
+`--help`. Scripts that run JAX models select a GPU with `--cuda_device 0` (or a
+comma-separated list) and fall back to the CPU when the option is left out.
+
+### Simulation
+
+Generate synthetic TODs, for example to test a reconstruction against a known sky.
+
+| Script | Purpose |
+|---|---|
+| `simulate.py` | Simulates TODs with Maria from a config and saves the true sky and atmosphere for comparison |
+
+`steering/config/sim_mustang.yml` (MUSTANG-2 at Green Bank) and
+`steering/config/sim_atlast.yml` (a 1° AtLAST array at Chajnantor) are example configs.
+The instrument is either a pre-defined Maria instrument or a custom one given in the
+config, with its own array and bands:
+
+```bash
+cd steering
+pixi run python scripts/simulate.py --config config/sim_mustang.yml --cuda_device 0
+```
+
+### Preprocessing
+
+Optional cleanup of the raw TODs before fitting. The stages are chained: each one
+writes its cleaned TODs together with a new config,
+`<odir>/run_<run>/<stage>/config.yaml`, which you pass as `--config` to the next stage.
+
+| Script | Purpose |
+|---|---|
+| `remove_jumps.py` | Finds the jumps in the raw TODs and subtracts them, using Minkasi |
+| `clean_tods.py` | Subtracts a quick atmosphere-only fit from the TODs |
+| `flag_spikes.py` | Detects and masks spikes, drops badly affected detectors, and estimates the noise level of every detector |
+
+### Reconstruction
+
+Fit the data, then export the result. A joint fit is the usual choice; an atmosphere-only
+fit can serve as its starting point via `--warm_start`.
+
+| Script | Purpose |
+|---|---|
+| `bin_mapper.py` | Makes a simple binned map with Maria's bin mapper, as a quick baseline |
+| `atmosphere_fit.py` | Fits the atmosphere only, without a sky map |
+| `map_fit.py` | Fits the sky map only, for TODs whose atmosphere has already been removed |
+| `joint_fit.py` | Fits the sky map and the atmosphere together |
+| `save_fits.py` | Exports a finished fit to FITS files |
+
+`save_fits.py` writes the posterior of a fit to `<odir>/plot_<run>/save_fits/`:
+
+- `map_mean.fits` – the mean map and the mean of every map component
+- `map_samples.fits` – every posterior sample of the map, plus draws from the prior
+- `tod_mean.fits` – the data and the mean reconstructed TODs of every scan
+
+The plotting and analysis scripts below work from these files alone, so they need
+neither the checkpoint nor the raw TODs.
+
+### Plotting
+
+| Script | Purpose |
+|---|---|
+| `plot_tods.py` | Gives a first look at the raw TODs and the detector layout |
+| `plot_from_fits.py` | Draws the final figures (maps, uncertainties, samples, power spectra, TODs) from a `save_fits.py` export |
+
+To compare the reconstruction against an existing map, pass that map to
+`plot_from_fits.py` with `--fits_map`.
+
+
+## Configuration
+
+Reconstructions are controlled by YAML files with `---`-delimited sections.
+
+| Section | Purpose |
+|---|---|
+| `odir` | Output directory for results and plots |
+| `data` | TOD file paths with optional per-detector masks |
+| `detector` | Detector geometry (derived from TODs or a hex-ring layout) |
+| `map` | Sky-map model: spatial grid, correlated-field priors, point sources |
+| `atmosphere` | Atmosphere model: `spline`, `gp-1d`, or `gp-3d` |
+| `response` | Beam convolution parameters |
+| `noise_std` | Per-sample noise standard deviation |
+| `minimization` | Iteration schedule and per-step solver settings |
+
+Annotated examples are in `steering/config/demo_*.yml`.
+
+---
+
+## Dependencies
+
+| Dependency | Purpose |
+|---|---|
+| [JAX](https://jax.readthedocs.io/) | GPU/CPU array operations and automatic differentiation |
+| [NIFTy.re](https://ift.pages.mpcdf.de/nifty/) | Information field theory and KL minimization |
+| [Maria](https://github.com/thomaswmorris/maria) | Telescope simulation, TOD loading, and beam models |
+| [Minkasi](https://github.com/sievers/minkasi) | Auxiliary TOD processing utilities |
+| SciPy, NumPy, Matplotlib, PyYAML | Numerics, visualization, configuration |
+
+## References
 
 - maria: https://arxiv.org/abs/2402.10731
 - NIFTy.re: https://arxiv.org/abs/2402.16683
-- maria+NIFTy.re conference proceding: https://arxiv.org/abs/2509.01600
+- maria+NIFTy.re conference proceeding: https://arxiv.org/abs/2509.01600

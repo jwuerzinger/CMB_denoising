@@ -1,0 +1,178 @@
+# Demo: atmosphere models, with the bin mapper as a baseline.
+#
+# Uses the same four RX J1347 scans as demo_2s.yml, but has no `map` section:
+# it is meant for scripts/atmosphere_fit.py (atmosphere only, no sky map), and
+# shows the three atmosphere models -- spline (active), gp-1d and gp-3d
+# (commented out). It also shows a per-iteration minimization schedule.
+#
+#   cd steering
+#   pixi run python scripts/atmosphere_fit.py --config config/demo_atm.yml --cuda_device 0
+#
+# See demo_2s.yml for the settings shared by all configs.
+
+# ------------------------------------------------------------------ run setup
+---
+
+odir: runs/RXJ1347/demo_config  # output root: fits go to <odir>/run_<run>/, plots to <odir>/plot_<run>/
+key: 44                         # random seed
+run: 0                          # run index
+resume: false                   # true: continue from the last checkpoint
+
+clear_every: 0                  # clear JAX's compilation caches every N iterations (0: never)
+plot_every: 4                   # diagnostic plots every N iterations (0: no plots)
+plot_extra: true                # currently unused
+verbose: true                   # log data shapes and model setup
+# `fused` is not set, so each scan gets its own likelihood (needed for gp-1d / gp-3d).
+
+# ----------------------------------------------------------------------- data
+---
+
+# One entry per scan. `mask_dets` lists detectors to leave out of the fit
+# entirely, as 0-based indices in the order of the FITS file.
+data:
+  d1:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s34.fits
+    mask_dets: []
+  d2:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s35.fits
+    mask_dets: [39, 40, 41, 42, 43, 44, 118, 119, 120]
+  d3:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s36.fits
+    mask_dets: [35, 36, 37]
+  d4:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s37.fits
+    mask_dets: [30]
+
+# ------------------------------------------------------------------- detector
+---
+
+detector:
+    from_tods: true   # take the detector positions from the TOD files
+    max_order: 0      # 0: keep the file's detector order
+
+# --------------------------------------------------------------------- model
+---
+
+# Pick exactly one `mode` block below. A polynomial can be added to a GP with
+# `mode: gp-1d+poly-1d` (in time) or `gp-1d+poly-2d` (across the focal plane);
+# `poly_params` is only used when the mode names it.
+atmosphere:
+  # ----------------------------------------------------------------------
+  # Spline: a B-spline in time for every detector (the default choice)
+  mode: spline
+  spline_params:
+    prefix: spline             # name used for the spline parameters
+    knot_spacing: 6            # seconds between spline knots
+    order: 3                   # spline degree (3 = cubic)
+    remove_el_gradient: true   # let the atmosphere amplitude vary linearly with elevation
+    coeff_prior:               # normal prior on the spline coefficients
+      mean: 0.0
+      std: 1.0
+
+  # ----------------------------------------------------------------------
+  # gp-1d: a Gaussian process in time for every detector
+  # mode: gp-1d
+  # gp_params:
+  #   prefix: gp
+  #   cfm_params:                       # correlated-field prior over time
+  #     offset_std: [0.1, 0.05]         # offset amplitude; lognormal [mean, std]
+  #     time:
+  #       fluctuations: [1, 0.5]        # fluctuation amplitude; lognormal
+  #       loglogavgslope: [-3, 1]       # power-spectrum slope; normal
+  #     in_axes: ['xi']                 # every detector gets its own realisation, sharing the spectrum
+  #   padding: 1                        # pad the time axis by this factor (reduces wrap-around)
+  #   downsampling: 4                   # model every 4th sample and interpolate in between
+  # poly_params:                        # only used with mode gp-1d+poly-1d / gp-1d+poly-2d
+  #   prefix: poly
+  #   order: 3                          # polynomial degree
+  #   coeff_prior:
+  #     mean: 0
+  #     std: 1
+
+  # ----------------------------------------------------------------------
+  # gp-3d: a Gaussian process correlated in space (across the focal plane) and time
+  # mode: gp-3d
+  # gp_params:
+  #   prefix: gp
+  #   cfm_params:
+  #     offset_std: [0.1, 0.05]
+  #     space:
+  #       shape: [4, 4]                 # spatial grid over the focal plane
+  #       distances: [1.0, 1.0]
+  #       fluctuations: [0.1, 0.05]
+  #       loglogavgslope: [-3, 1]
+  #     time:
+  #       fluctuations: [1, 0.5]
+  #       loglogavgslope: [-3, 1]
+  #   padding: 1
+  #   downsampling: 4
+  # poly_params:                        # only used with mode gp-3d+poly-1d / gp-3d+poly-2d
+  #   prefix: poly
+  #   order: 3
+  #   coeff_prior:
+  #     mean: 0
+  #     std: 1
+
+response:
+  sigma: 1                     # beam smoothing in map pixels (only matters when a map is fitted)
+
+noise_std: 0.015               # white-noise level per TOD sample, in data units (K_RJ)
+
+# --------------------------------------------------------------- minimization
+---
+
+# Per-iteration schedules: `2*[100] + 2*[200]` means 100 for two iterations,
+# then 200 for two. A schedule shorter than n_total_iterations repeats its last
+# value; entries beyond n_total_iterations are ignored.
+minimization:
+  n_total_iterations: 12       # number of outer (KL) iterations
+  n_samples: 2                 # posterior samples per iteration; each is mirrored, so 2 x n_samples are stored
+  draw_linear_kwargs:          # conjugate gradient that draws the samples
+    cg_name: SL
+    cg_kwargs:
+      absdelta: 1.0e-11
+      miniter: 2*[100] + 2*[200] + 2*[350] + 2*[500] + 2*[1000] + 2*[2500]  # more accurate samples as the fit converges
+      maxiter: 2*[100] + 2*[200] + 2*[350] + 2*[500] + 2*[1000] + 2*[2500] + 2*[5000]
+  nonlinearly_update_kwargs:   # geoVI sample update, used from the 5th iteration on (see sample_mode)
+    minimize_kwargs:
+      name: SN
+      xtol: 1.0e-6
+      cg_kwargs:
+        name: null
+      miniter: 0
+      maxiter: 20
+  kl_kwargs:                   # Newton-CG minimisation of the KL divergence in each iteration
+    minimize_kwargs:
+      name: M
+      absdelta: 1.0e-12
+      cg_kwargs:
+        name: null
+        miniter: 2*[5] + 2*[10] + [20]
+      miniter: 2*[5] + 2*[10] + 2*[20] + 2*[35] + 2*[50] + 2*[100]
+      maxiter: 2*[5] + 2*[10] + 2*[20] + 2*[35] + 2*[50] + 2*[100] + [250]
+      energy_reduction_factor: 0.001
+  sample_mode: 4*[linear_resample] + [nonlinear_sample]  # MGVI for 4 iterations, then geoVI
+
+# ----------------------------------------------------------------- bin mapper
+---
+
+# Settings for scripts/bin_mapper.py: a quick binned map as a baseline.
+bin_mapper:
+  width: 0.16944444444444445   # map width in degrees (10.2')
+  resolution: 0.00055555555555556  # pixel size in degrees (2")
+  tod_preprocessing:           # applied to the TODs before binning
+    remove_spline:             # subtract a spline fit per detector
+      knot_spacing: 6          # seconds
+      remove_el_gradient: true
+    remove_modes:
+      modes_to_remove: [1]     # 0-based SVD modes to subtract, strongest first
+    filter:
+      f_lower: 0.1             # high-pass cutoff in Hz
+      f_upper: 10              # low-pass cutoff in Hz
+    window:                    # taper the TOD ends before filtering
+      name: tukey
+      kwargs:
+        alpha: 0.1
+  map_postprocessing:
+    gaussian_filter:
+      sigma: 1.0               # smooth the binned map, in map pixels

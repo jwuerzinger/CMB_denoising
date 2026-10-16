@@ -1,0 +1,162 @@
+# Demo: joint reconstruction of RX J1347.5-1145 from four MUSTANG-2 scans.
+#
+# The sky map has two components -- a diffuse cluster signal (s1) and a compact
+# source (s2) -- fitted jointly with a spline atmosphere. Short iteration
+# schedule, so it is a quick first run:
+#
+#   cd steering
+#   pixi run python scripts/joint_fit.py --config config/demo_2s.yml --cuda_device 0
+#
+# The file is split into `---` documents for readability only; they are merged
+# into one config when loaded. Paths are relative to `steering/`.
+
+# ------------------------------------------------------------------ run setup
+---
+
+odir: runs/RXJ1347/demo_2s_6arcmin  # output root: fits go to <odir>/run_<run>/, plots to <odir>/plot_<run>/
+key: 44                             # random seed (initial position and posterior samples)
+run: 0                              # run index; increase it to start a fresh run with the same odir
+resume: false                       # true: continue from <odir>/run_<run>/joint_fit/last.pkl
+
+clear_every: 0                      # clear JAX's compilation caches every N iterations (0: never)
+plot_every: 2                       # diagnostic plots every N iterations (0: no plots)
+plot_extra: true                    # currently unused
+plot_tods: 1                        # draw TOD plots for the first N datasets only
+verbose: true                       # log data shapes and model setup
+fused: true                         # one batched likelihood over all datasets (faster; spline atmosphere only)
+
+# ----------------------------------------------------------------------- data
+---
+
+# One entry per scan. `mask_dets` lists detectors to leave out of the fit
+# entirely, as 0-based indices in the order of the FITS file.
+data:
+  d1:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s34.fits
+    mask_dets: []
+  d2:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s35.fits
+    mask_dets: [39, 40, 41, 42, 43, 44, 118, 119, 120]
+  d3:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s36.fits
+    mask_dets: [35, 36, 37]
+  d4:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s37.fits
+    mask_dets: [30]
+
+# ------------------------------------------------------------------- detector
+---
+
+detector:
+    from_tods: true   # take the detector positions from the TOD files
+    max_order: 0      # 0: keep the file's detector order (>0 tries to match a hexagonal layout)
+
+# --------------------------------------------------------------------- model
+---
+
+# Sky map. Angles are strings with a unit: as (arcsec), amin (arcmin), deg, rad.
+# Prior pairs [mean, std] set the mean and spread of the prior on that parameter.
+map:
+  space_params:              # the common output grid: every component is resampled onto it
+    shape: [500, 500]        # pixels -> 6'/500 = 0.72" per pixel
+    fov: [6amin, 6amin]
+  source_params:
+    s1:                      # diffuse cluster signal, covering the whole field
+      space_params:
+        shape: [500, 500]
+        fov: [6amin, 6amin]
+      cfm_params:            # correlated-field (Gaussian process) prior
+        offset_std: [1.e-3, 5.e-4]       # amplitude of the overall offset (zero mode); lognormal
+        fluctuations: [1.e-3, 5.e-4]     # amplitude of the spatial fluctuations; lognormal
+        loglogavgslope: [-2.0, 0.5]      # slope of the power spectrum in log-log; normal
+      gm_params:             # Gaussian envelope multiplying the field, centred on the component
+        cov_x: [0.25, 0.1]   # envelope width (sigma) in x, as a fraction of this component's fov; lognormal
+        cov_y: [0.25, 0.1]   # same in y
+    s2:                      # compact source on a small, finer grid
+      space_params:
+        shape: [100, 100]
+        fov: [0.6amin, 0.6amin]
+        center: [-0.2amin, 0.1amin]      # offset from the field centre
+      cfm_params:
+        offset_std: [1.e-3, 5.e-4]
+        fluctuations: [1.e-3, 5.e-4]
+        loglogavgslope: [-2.0, 0.5]
+      gm_params:
+        cov_x: [0.25, 0.1]
+        cov_y: [0.25, 0.1]
+
+# Atmosphere: a cubic B-spline in time for every detector.
+atmosphere:
+  mode: spline               # spline | gp-1d | gp-3d (see demo_atm.yml); fused runs need spline
+  spline_params:
+    knot_spacing: 6          # seconds between spline knots
+    order: 3                 # spline degree (3 = cubic)
+    remove_el_gradient: true # let the atmosphere amplitude vary linearly with elevation
+    coeff_prior:             # normal prior on the spline coefficients
+      mean: 0.0
+      std: 1.0
+
+response:
+  sigma: 1                   # beam: Gaussian smoothing of the map before projecting it into the TODs,
+                             # in pixels of the common grid (here 0.72")
+
+noise_std: 0.015             # white-noise level per TOD sample, in data units (K_RJ for MUSTANG-2)
+
+# --------------------------------------------------------------- minimization
+---
+
+# Variational inference with NIFTy (MGVI/geoVI). Any setting below can also be a
+# per-iteration schedule such as `2*[100] + 2*[200]`; a schedule shorter than
+# n_total_iterations repeats its last value (see demo_atm.yml).
+minimization:
+  n_total_iterations: 8      # number of outer (KL) iterations
+  n_samples: 2               # posterior samples per iteration; each is mirrored, so 2 x n_samples are stored
+  draw_linear_kwargs:        # conjugate gradient that draws the samples
+    cg_name: SL              # log label (null: silent)
+    cg_kwargs:
+      absdelta: 1.0e-11      # stop once the energy changes by less than this
+      miniter: 500
+      maxiter: 500
+  nonlinearly_update_kwargs: # geoVI sample update; only used by the nonlinear_* sample modes
+    minimize_kwargs:
+      name: SN
+      xtol: 1.0e-6
+      cg_kwargs:
+        name: null
+      miniter: 0
+      maxiter: 10
+  kl_kwargs:                 # Newton-CG minimisation of the KL divergence in each iteration
+    minimize_kwargs:
+      name: M
+      absdelta: 1.0e-12
+      cg_kwargs:
+        name: null
+      miniter: 5             # Newton steps per iteration
+      maxiter: 5
+      energy_reduction_factor: 0.001  # inner CG tolerance relative to the last energy decrease
+  sample_mode: linear_resample  # MGVI with fresh samples every iteration; nonlinear_* add the geoVI update
+
+# ----------------------------------------------------------------- bin mapper
+---
+
+# Settings for scripts/bin_mapper.py (a quick binned map as a baseline);
+# uncomment to use them. Widths and resolutions are in degrees.
+# bin_mapper:
+#   width: 0.05
+#   resolution: 0.0005
+#   tod_preprocessing:
+#     remove_spline:
+#       knot_spacing: 6
+#       remove_el_gradient: true
+#     remove_modes:
+#       modes_to_remove: [1]
+#     filter:
+#       f_lower: 0.1
+#       f_upper: 10
+#     window:
+#       name: tukey
+#       kwargs:
+#         alpha: 0.1
+#   map_postprocessing:
+#     gaussian_filter:
+#       sigma: 1.0

@@ -1,0 +1,178 @@
+---
+
+odir: runs/RXJ1347/AGBT17A_358_test/10tods_10amin_8s_nl
+mode: joint
+key: 42
+run: 1
+resume: true
+
+clear_every: 0
+plot_every: 2
+plot_extra: true
+plot_tods: 1
+verbose: true
+fused: true
+
+---
+
+data:
+  scan_center: [206.877083deg, -11.7525deg]
+  d1:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s34.fits
+  d2:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s35.fits
+    mask_dets: [39, 40, 41, 42, 43, 44, 118, 119, 120]
+  d3:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s36.fits
+    mask_dets: [35, 36, 37]
+  d4:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_03-s37.fits
+    mask_dets: [30]
+  d5:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_05-s22.fits
+    mask_dets: [7]
+  d6:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_05-s23.fits
+  d7:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_05-s25.fits
+  d8:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_05-s26.fits
+  d9:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_07-s40.fits
+    mask_dets: [19, 20, 21, 22]
+  d10:
+    fname: data/RXJ1347/Signal_TOD-AGBT17A_358_07-s41.fits
+
+---
+
+flagging:
+  minkasi_dejump: {}
+  bad_regions: {}
+
+---
+
+cleaning:
+  rerun: true
+  n_iterations: 4
+  spline_params:
+    knot_spacing: 6
+    order: 3
+    remove_el_gradient: true
+    coeff_prior:
+      mean: 0.0
+      std: 1.0
+---
+
+detector:
+    from_tods: true
+    max_order: 0
+
+---
+
+map:
+  space_params:
+    shape: [1000, 1000]
+    fov: [10amin, 10amin]
+  source_params:
+    s1:
+      space_params:
+        shape: [1000, 1000]
+        fov: [10amin, 10amin]
+      cfm_params:
+        offset_std: [0.001, 0.01]
+        fluctuations: [0.001, 0.01]
+        loglogavgslope: [-2.0, 0.5]
+      gm_params:
+        cov_x: [0.1, 0.01]
+        cov_y: [0.1, 0.01]
+    s2:
+      space_params:
+        shape: [50, 50]
+        fov: [0.5amin, 0.5amin]
+      cfm_params:
+        offset_mean: -10
+        offset_std: [1, 0.5]
+        fluctuations: [1, 0.5]
+        loglogavgslope: [-2.0, 0.5]
+      gm_params:
+        cov_x: [0.1, 0.01]
+        cov_y: [0.1, 0.01]
+      nonlinearity: softplus
+
+atmosphere:
+  mode: spline
+  spline_params:
+    knot_spacing: 6
+    order: 3
+    remove_el_gradient: true
+    coeff_prior:
+      mean: 0.0
+      std: 1.0
+
+response:
+  sigma: 6.46
+  order: 0
+  mode: constant
+
+noise_std: 0.018
+
+---
+
+minimization:
+  n_total_iterations: 10
+  n_samples: 8
+  draw_linear_kwargs:
+    cg_name: SL
+    cg_kwargs:
+      absdelta: 1.0e-11
+      miniter: 4*[250] + 4*[500] + 4*[1000]
+      maxiter: 4*[250] + 4*[500] + 4*[1000]
+  nonlinearly_update_kwargs:
+    minimize_kwargs:
+      name: SN
+      xtol: 1.0e-6
+      cg_kwargs:
+        name: null
+      miniter: 0
+      maxiter: 10
+  kl_kwargs:
+    minimize_kwargs:
+      name: M
+      absdelta: 1.0e-12
+      cg_kwargs:
+        name: null
+      miniter: 5
+      maxiter: 4*[5] + 4*[10] + 4*[20]
+      energy_reduction_factor: 0.001
+  sample_mode: linear_resample
+
+---
+
+bin_mapper:
+  width: 0.05
+  resolution: 0.0005
+  tod_preprocessing:
+    remove_spline:
+      knot_spacing: 6
+      remove_el_gradient: true
+    remove_modes:
+      modes_to_remove: [1]
+    filter:
+      f_lower: 0.1
+      f_upper: 10
+    window:
+      name: tukey
+      kwargs:
+        alpha: 0.1
+  map_postprocessing:
+    gaussian_filter:
+      sigma: 1.0
+
+---
+
+pipeline:
+  plot_tods: false
+  remove_jumps: false
+  clean_tods: false
+  flag_spikes: false
+  bin_mapper: false

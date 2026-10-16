@@ -1,0 +1,74 @@
+# Simulation: AtLAST daisy scan of a simulated galaxy cluster at Chajnantor.
+#
+# For scripts/simulate.py (not a fit config). Writes the simulated TODs and the
+# true components to <tdir>/sim_<run>/{tods.fits,truth.npz} and diagnostic
+# plots to <odir>/sim_<run>/:
+#
+#   cd steering
+#   pixi run python scripts/simulate.py --config config/sim_atlast.yml --cuda_device 0
+#
+# Instrument, map and scan follow the AtLAST setup. The array has ~9900 detectors, so the
+# TODs (60 s at 225 Hz) take a few GB per component.
+
+# ------------------------------------------------------------------ run setup
+---
+
+tdir: data/SIMULATION/ATLAST   # simulated TODs and truth: <tdir>/sim_<run>/
+odir: runs/SIMULATION/ATLAST   # plots: <odir>/sim_<run>/
+run: 0
+
+# ----------------------------------------------------------------- simulation
+---
+
+# A custom instrument: one 1-degree array with a single 90 GHz band. Passed to
+# maria.get_instrument; add `name: atlast` to start from maria's own AtLAST
+# config instead (217 detectors, six bands).
+instrument:
+  array:
+    field_of_view: 1.0         # in degrees
+    primary_size: 50           # in meters
+    beam_spacing: 2            # in beams
+    shape: circle
+    bands:
+      - name: f090
+        center: 91.5e+9        # in Hz
+        width: 51.0e+9         # in Hz
+        NET_RJ: 266.0e-6       # in K_RJ sqrt(s)
+
+site: llano_de_chajnantor
+
+map:
+  filename: data/SIMULATION/maps/big_cluster1.fits
+  scale: 50.0                  # factor applied to the input map
+  resolution: 0.0009765625     # pixel size in degrees
+  width: 1.0                   # map width in degrees
+  center: [291.156, -31.23]    # also the scan center
+  frame: ra_dec
+  nu: 91.5e+9                  # in Hz
+  units: Jy/pixel
+
+plan:
+  scan_pattern: daisy
+  scan_options:
+    radius: 0.25               # in degrees
+    speed: 0.5                 # in degrees per second
+  duration: 60                 # in seconds
+  sample_rate: 225             # in Hz
+  start_time: 2024-08-06T03:00:00
+
+noise: 4.0e-3                  # std of the white noise that replaces maria's noise, in TOD units (~NET_RJ * sqrt(sample_rate))
+
+# Detectors drawn in the TOD plots: a number spread evenly over the array or a
+# list of indices (default: all). `plot: false` skips the plots.
+plot:
+  dets: 200
+
+# ----------------------------------------------------------------- atmosphere
+---
+
+# Simplify the atmosphere TODs: `false` removes the per-detector offsets /
+# rescales all detectors to a common slope. Leave out this section to drop
+# the atmosphere from the saved TODs entirely.
+atm:
+  offsets: false
+  slopes: true

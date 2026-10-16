@@ -1,0 +1,67 @@
+# Simulation: MUSTANG-2 daisy scan of a galaxy cluster at Green Bank.
+#
+# For scripts/simulate.py (not a fit config). Writes the simulated TODs and the
+# true components to <tdir>/sim_<run>/{tods.fits,truth.npz} and diagnostic
+# plots to <odir>/sim_<run>/:
+#
+#   cd steering
+#   pixi run -e cpu python scripts/simulate.py --config config/sim_mustang.yml
+#
+# Map and scan settings follow the MUSTANG-2 setup of CMB_denoising.
+
+# ------------------------------------------------------------------ run setup
+---
+
+tdir: data/SIMULATION/MUSTANG  # simulated TODs and truth: <tdir>/sim_<run>/
+odir: runs/SIMULATION/MUSTANG  # plots: <odir>/sim_<run>/
+run: 0
+
+# ----------------------------------------------------------------- simulation
+---
+
+instrument: mustang-2          # pre-defined maria instrument (217 detectors)
+site: green_bank
+
+map:
+  filename: maps/cluster2.fits # fetched from the maria-data repository
+  scale: 0.125                 # factor applied to the input map
+  resolution: 8.714e-05        # pixel size in degrees
+  width: 0.08714               # map width in degrees
+  center: [144, 12]            # also the scan center
+  frame: ra_dec
+  nu: 93.0e+9                  # in Hz
+  units: Jy/pixel
+
+plan:
+  scan_pattern: daisy
+  scan_options:
+    radius: 0.0333             # in degrees
+    speed: 0.008333            # in degrees per second
+  duration: 500                # in seconds
+  sample_rate: 50              # in Hz
+  start_time: 2024-02-10T06:00:00.000
+
+noise: 0.01                    # std of the white noise that replaces maria's noise, in TOD units
+
+# Optional: replace the true sky by an image from an .npz or .npy file,
+# centered on the map
+# image:
+#   fname: mani/mani.npz
+#   key: original              # array in the .npz file (default: original)
+#   fov: 0.667                 # image width as a fraction of the map width (default: 1)
+#   scale: 0.025               # factor applied to the image (default: 1)
+
+# Detectors drawn in the TOD plots: a number spread evenly over the array or a
+# list of indices (default: all). `plot: false` skips the plots.
+plot:
+  dets: 217
+
+# ----------------------------------------------------------------- atmosphere
+---
+
+# Simplify the atmosphere TODs: `false` removes the per-detector offsets /
+# rescales all detectors to a common slope. Leave out this section to drop
+# the atmosphere from the saved TODs entirely.
+atm:
+  offsets: false
+  slopes: true

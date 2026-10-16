@@ -1,50 +1,46 @@
 [workspace]
 channels = ["conda-forge"]
 name = "CMB-denoising"
-platforms = ["linux-64", "osx-arm64"]
+platforms = ["linux-64"]
 version = "0.1.0"
 
-[tasks]
-
-[dependencies]
+# Shared dependencies used by both the GPU and CPU environments.
+[feature.common.dependencies]
+python = ">=3.11,<3.14"
 pytest = ">=8.4.2,<9"
 pip = ">=25.2,<26"
-jax = "==0.6.0"
+numpy = ">=2.3.2,<3"
+scipy = ">=1.15,<2"
+matplotlib = ">=3.8,<4"
+pyyaml = ">=6.0,<7"
+click = ">=8.1,<9"
+tqdm = ">=4.66,<5"
+ipython = ">=8.0,<9"
+typing-extensions = "==4.7.1"
+setuptools = ">=70,<71"
+
+[feature.common.tasks]
+test = "pytest tests/ -v"
+
+[feature.common.pypi-dependencies]
+nifty = ">=9.0.0, <10"
+maria = { git = "https://github.com/thomaswmorris/maria.git", rev = "5b5a7bfee28edc7da47300e87ed1b32acba6c5f0" }
+minkasi = { git = "https://github.com/sievers/minkasi" }
+maria_nifty = { path = ".", editable = true }
+
+# GPU-specific: CUDA 12.6 driver and system requirement.
+[feature.gpu.dependencies]
 cuda-version = "12.6.*"
-numpy = ">=2.3.2,<3"
-scikit-image = ">=0.25.2,<0.26"
 
-[pypi-dependencies]
-nifty8 = ">=8.5.7, <9"
-maria = { git = "https://github.com/thomaswmorris/maria.git" }
-nifty_maria = { path = "./nifty_maria", editable = true}
+[feature.gpu.pypi-dependencies]
+jax = { version = ">=0.7.0,<1", extras = ["cuda12"] }
 
-[feature.cpu.dependencies]
-pytest = ">=8.4.2,<9"
-pip = ">=25.2,<26"
-numpy = ">=2.3.2,<3"
-scikit-image = ">=0.25.2,<0.26"
-jax = "==0.6.0"
+[feature.gpu.system-requirements]
+cuda = "12.6"
 
 [feature.cpu.pypi-dependencies]
-nifty8 = ">=8.5.7, <9"
-maria = { git = "https://github.com/thomaswmorris/maria.git" }
-nifty_maria = { path = "./nifty_maria", editable = true }
-
-[feature.test-no-maria.dependencies]
-pytest = ">=8.4.2,<9"
-pip = ">=25.2,<26"
-numpy = ">=2.3.2,<3"
-scikit-image = ">=0.25.2,<0.26"
-jax = "==0.6.0"
-
-[feature.test-no-maria.pypi-dependencies]
-nifty8 = ">=8.5.7, <9"
-nifty_maria = { path = "./nifty_maria", editable = true }
-
-[system-requirements]
-cuda = "12.9"
+jax = ">=0.7.0,<1"
 
 [environments]
-cpu = { features = ["cpu"], no-default-feature = true }
-test = { features = ["test-no-maria"], no-default-feature = true }
+default = { features = ["common", "gpu"], solve-group = "default" }
+cpu = { features = ["common", "cpu"], no-default-feature = true }
